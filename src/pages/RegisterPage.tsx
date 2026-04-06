@@ -3,10 +3,10 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { APP_LOGO } from '../constants';
+import { APP_LOGO, padPassword } from '../constants';
 import { UserPlus, Mail, Lock, User, Building } from 'lucide-react';
 import { motion } from 'motion/react';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
 
 const RegisterPage = () => {
   const [email, setEmail] = useState('');
@@ -26,7 +26,18 @@ const RegisterPage = () => {
     const finalEmail = trimmedEmail.includes('@') ? trimmedEmail : `${trimmedEmail}@simak.com`;
     
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, finalEmail, password);
+      // Check if user already exists in Firestore first (optional but good for UX)
+      const q = query(collection(db, 'users'), where('email', '==', finalEmail));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        toast.error('Email atau Username sudah terdaftar. Silakan gunakan yang lain atau masuk.');
+        setLoading(false);
+        return;
+      }
+
+      const finalPassword = padPassword(password);
+      const userCredential = await createUserWithEmailAndPassword(auth, finalEmail, finalPassword);
       const user = userCredential.user;
       
       // Bootstrap admin role for specific emails
@@ -48,7 +59,11 @@ const RegisterPage = () => {
       toast.success('Pendaftaran berhasil!');
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error('Pendaftaran gagal: ' + error.message);
+      let errorMessage = 'Pendaftaran gagal: ' + error.message;
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'Email atau Username sudah terdaftar. Silakan gunakan yang lain atau masuk.';
+      }
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

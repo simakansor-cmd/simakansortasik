@@ -95,7 +95,6 @@ const AllParticipants = () => {
         const canvas = await html2canvas(bulkIdCardRef.current, { 
           scale: 3,
           useCORS: true,
-          allowTaint: true,
           backgroundColor: '#ffffff'
         });
         const imgData = canvas.toDataURL('image/png');
@@ -145,7 +144,6 @@ const AllParticipants = () => {
           const canvas = await html2canvas(bulkIdCardRef.current, { 
             scale: 3, // Higher scale for better quality
             useCORS: true,
-            allowTaint: true,
             backgroundColor: '#ffffff'
           });
           const imgData = canvas.toDataURL('image/png');
@@ -221,7 +219,7 @@ const AllParticipants = () => {
                   alt="Logo" 
                   className="w-full h-full object-contain" 
                   crossOrigin="anonymous"
-                  referrerPolicy="no-referrer" 
+                  referrerPolicy="no-referrer"
                 />
               </div>
             </div>

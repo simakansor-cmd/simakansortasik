@@ -95,7 +95,11 @@ const RegistrationPage = () => {
 
   const downloadIDCard = async () => {
     if (!idCardRef.current) return;
-    const canvas = await html2canvas(idCardRef.current, { scale: 2 });
+    const canvas = await html2canvas(idCardRef.current, { 
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff'
+    });
     const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF('p', 'mm', 'a4');
     const imgProps = pdf.getImageProperties(imgData);
@@ -389,7 +393,7 @@ const RegistrationPage = () => {
                           alt="Logo" 
                           className="w-full h-full object-contain" 
                           crossOrigin="anonymous"
-                          referrerPolicy="no-referrer" 
+                          referrerPolicy="no-referrer"
                         />
                       </div>
                     </div>

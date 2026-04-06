@@ -136,7 +136,6 @@ const ParticipantManagement = () => {
         const canvas = await html2canvas(idCardRef.current, { 
           scale: 3,
           useCORS: true,
-          allowTaint: true,
           backgroundColor: '#ffffff'
         });
         const imgData = canvas.toDataURL('image/png');
@@ -383,7 +382,7 @@ const ParticipantManagement = () => {
                   alt="Logo" 
                   className="w-full h-full object-contain" 
                   crossOrigin="anonymous"
-                  referrerPolicy="no-referrer" 
+                  referrerPolicy="no-referrer"
                 />
               </div>
             </div>

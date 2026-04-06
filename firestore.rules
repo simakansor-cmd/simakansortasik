@@ -77,7 +77,7 @@ service cloud.firestore {
         (request.auth.token.email == 'adminsimak@simak.com' || 
          request.auth.token.email == 'kaderisasiansortasik@gmail.com' ||
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          getUserData().role == 'admin_utama'));
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin_utama'));
     }
     
     function isAdminPAC() {
@@ -160,14 +160,12 @@ service cloud.firestore {
       
       // Create: Owner can create their own profile, or Admin Utama can create any
       allow create: if isAuthenticated() && 
-                    isValidUser(request.resource.data) && 
-                    (isOwner(userId) || isAdminUtama());
+                    (isAdminUtama() || (isOwner(userId) && isValidUser(request.resource.data)));
       
       // Update: Owner can update their own profile (but not role unless Admin), or Admin Utama can update any
       allow update: if isAuthenticated() && 
-                    isValidUser(request.resource.data) && 
                     (isAdminUtama() || 
-                     (isOwner(userId) && request.resource.data.role == resource.data.role));
+                     (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role));
       
       allow delete: if isAdminUtama();
     }

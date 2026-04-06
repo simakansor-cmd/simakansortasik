@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../components/AuthContext';
-import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, setDoc, getDoc, where, getDocs } from 'firebase/firestore';
 import { initializeApp, deleteApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import { padPassword } from '../constants';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { 
   Users, 
   Shield, 
@@ -48,6 +50,8 @@ const AccountManagement = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'admin_utama' | 'admin_pac' | 'peserta'>('all');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null);
 
   useEffect(() => {
     if (!isAdminUtama) return;
@@ -69,12 +73,13 @@ const AccountManagement = () => {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus akun ${userName}? Data di Firestore akan dihapus.`)) return;
+  const handleDeleteUser = async () => {
+    if (!deleteConfirm) return;
     
     try {
-      await deleteDoc(doc(db, 'users', userId));
-      toast.success('Data akun berhasil dihapus dari database');
+      await deleteDoc(doc(db, 'users', deleteConfirm.id));
+      toast.success(`Akun ${deleteConfirm.name} berhasil dihapus dari database`);
+      setDeleteConfirm(null);
     } catch (error: any) {
       toast.error('Gagal menghapus data akun: ' + error.message);
     }
@@ -86,27 +91,51 @@ const AccountManagement = () => {
     
     let secondaryApp;
     try {
+      // Check if user already exists in Firestore first
+      const q = query(collection(db, 'users'), where('email', '==', newUser.email));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        // User exists in Firestore, just update the role and name
+        const existingDoc = querySnapshot.docs[0];
+        await updateDoc(doc(db, 'users', existingDoc.id), {
+          name: newUser.name,
+          role: newUser.role,
+          pac_name: newUser.role === 'admin_pac' ? newUser.pac_name : '',
+        });
+        toast.success('Data akun berhasil diperbarui (Email sudah terdaftar)');
+        setShowAddModal(false);
+        setNewUser({ name: '', email: '', password: '', role: 'peserta', pac_name: '' });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Create a secondary app to avoid logging out the admin
       const appName = `secondary-app-${Date.now()}`;
       secondaryApp = initializeApp(firebaseConfig, appName);
       const secondaryAuth = getAuth(secondaryApp);
       
       // 1. Create Auth Account
+      const finalPassword = padPassword(newUser.password);
       const userCredential = await createUserWithEmailAndPassword(
         secondaryAuth, 
         newUser.email, 
-        newUser.password
+        finalPassword
       );
       
       // 2. Create Firestore Profile
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
-        uid: userCredential.user.uid,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role,
-        pac_name: newUser.role === 'admin_pac' ? newUser.pac_name : '',
-        created_at: new Date().toISOString()
-      });
+      try {
+        await setDoc(doc(db, 'users', userCredential.user.uid), {
+          uid: userCredential.user.uid,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role,
+          pac_name: newUser.role === 'admin_pac' ? newUser.pac_name : '',
+          created_at: new Date().toISOString()
+        });
+      } catch (error: any) {
+        handleFirestoreError(error, OperationType.WRITE, `users/${userCredential.user.uid}`);
+      }
 
       toast.success('Akun berhasil ditambahkan secara manual');
       setShowAddModal(false);
@@ -164,24 +193,46 @@ const AccountManagement = () => {
 
           let secondaryApp;
           try {
+            // Check if user already exists in Firestore first
+            const q = query(collection(db, 'users'), where('email', '==', email));
+            const querySnapshot = await getDocs(q);
+            
+            if (!querySnapshot.empty) {
+              const existingDoc = querySnapshot.docs[0];
+              await updateDoc(doc(db, 'users', existingDoc.id), {
+                name: name,
+                role: role,
+                pac_name: role === 'admin_pac' ? pac_name : '',
+              });
+              successCount++;
+              continue;
+            }
+
             const appName = `import-app-${Date.now()}-${successCount}`;
             secondaryApp = initializeApp(firebaseConfig, appName);
             const secondaryAuth = getAuth(secondaryApp);
             
-            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+            const finalPassword = padPassword(password.toString());
+            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, finalPassword);
             
-            await setDoc(doc(db, 'users', userCredential.user.uid), {
-              uid: userCredential.user.uid,
-              name: name,
-              email: email,
-              role: role,
-              pac_name: role === 'admin_pac' ? pac_name : '',
-              created_at: new Date().toISOString()
-            });
+            try {
+              await setDoc(doc(db, 'users', userCredential.user.uid), {
+                uid: userCredential.user.uid,
+                name: name,
+                email: email,
+                role: role,
+                pac_name: role === 'admin_pac' ? pac_name : '',
+                created_at: new Date().toISOString()
+              });
+            } catch (error: any) {
+              handleFirestoreError(error, OperationType.WRITE, `users/${userCredential.user.uid}`);
+            }
             
             successCount++;
-          } catch (err) {
+          } catch (err: any) {
             console.error(`Failed to import ${email}:`, err);
+            const reason = err.code === 'auth/email-already-in-use' ? 'Email sudah terdaftar' : err.message;
+            console.warn(`Alasan kegagalan untuk ${email}: ${reason}`);
             failCount++;
           } finally {
             if (secondaryApp) await deleteApp(secondaryApp);
@@ -201,10 +252,12 @@ const AccountManagement = () => {
     reader.readAsBinaryString(file);
   };
 
-  const filteredUsers = users.filter(u => 
-    u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    u.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         u.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTab = activeTab === 'all' || u.role === activeTab;
+    return matchesSearch && matchesTab;
+  });
 
   if (loading) return <div className="flex items-center justify-center h-64">Memuat data akun...</div>;
 
@@ -237,8 +290,35 @@ const AccountManagement = () => {
       </header>
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-50">
-          <div className="relative max-w-md">
+        <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex bg-slate-100 p-1 rounded-xl w-fit">
+            {[
+              { id: 'all', label: 'Semua', icon: Users },
+              { id: 'admin_utama', label: 'Admin Utama', icon: ShieldAlert },
+              { id: 'admin_pac', label: 'Admin PAC', icon: ShieldCheck },
+              { id: 'peserta', label: 'Peserta', icon: Shield }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                  activeTab === tab.id 
+                    ? 'bg-white text-green-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-green-600' : 'text-slate-400'}`} />
+                {tab.label}
+                <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[10px] ${
+                  activeTab === tab.id ? 'bg-green-50 text-green-600' : 'bg-slate-200 text-slate-500'
+                }`}>
+                  {tab.id === 'all' ? users.length : users.filter(u => u.role === tab.id).length}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="relative max-w-md w-full md:w-64">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input 
               type="text"
@@ -306,7 +386,7 @@ const AccountManagement = () => {
                   </td>
                   <td className="px-6 py-5 text-right">
                     <button 
-                      onClick={() => handleDeleteUser(u.id, u.name)}
+                      onClick={() => setDeleteConfirm({ id: u.id, name: u.name })}
                       className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                       title="Hapus Akun"
                     >
@@ -515,6 +595,42 @@ const AccountManagement = () => {
                 <div className="text-xs text-slate-400 italic">
                   * Proses import akan mendaftarkan akun ke sistem autentikasi dan membuat profil di database.
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirm && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100"
+            >
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Hapus Akun?</h3>
+              <p className="text-slate-500 text-center mb-8">
+                Apakah Anda yakin ingin menghapus akun <span className="font-bold text-slate-900">{deleteConfirm.name}</span>? 
+                Tindakan ini akan menghapus data profil dari database dan tidak dapat dibatalkan.
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={handleDeleteUser}
+                  className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all"
+                >
+                  Ya, Hapus
+                </button>
               </div>
             </motion.div>
           </div>

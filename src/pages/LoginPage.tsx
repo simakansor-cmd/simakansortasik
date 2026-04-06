@@ -3,7 +3,7 @@ import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 
 import { auth, db } from '../firebase';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { APP_LOGO } from '../constants';
+import { APP_LOGO, padPassword } from '../constants';
 import { LogIn, Mail, Lock, Chrome } from 'lucide-react';
 import { motion } from 'motion/react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -24,7 +24,8 @@ const LoginPage = () => {
     
     try {
       console.log('Attempting login with:', finalEmail);
-      await signInWithEmailAndPassword(auth, finalEmail, password);
+      const finalPassword = padPassword(password);
+      await signInWithEmailAndPassword(auth, finalEmail, finalPassword);
       toast.success('Login berhasil!');
       navigate('/dashboard');
     } catch (error: any) {
