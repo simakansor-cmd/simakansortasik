@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdminUtama() {
+      return isAuthenticated() && 
+        (getUserData().role == 'admin_utama' || 
+         request.auth.token.email == 'adminsimak@simak.com' ||
+         request.auth.token.email == 'kaderisasiansortasik@gmail.com');
+    }
+    
+    function isAdminPAC() {
+      return isAuthenticated() && getUserData().role == 'admin_pac';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'role']) &&
+             data.role in ['admin_utama', 'admin_pac', 'peserta'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdminUtama());
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role;
+    }
+
+    match /kaderisasi/{kegiatanId} {
+      // Allow public read for approved events
+      allow read: if resource.data.status == 'approved' || isAuthenticated();
+      allow create: if isAdminPAC() || isAdminUtama();
+      allow update: if isAdminUtama() || (isAdminPAC() && resource.data.created_by == request.auth.uid && resource.data.status == 'pending');
+      allow delete: if isAdminUtama();
+    }
+
+    match /materi/{materiId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminUtama();
+    }
+
+    match /peserta/{pesertaId} {
+      allow read: if isAuthenticated();
+      allow create: if true; // Public registration allowed
+      allow update: if isAdminPAC() || isAdminUtama();
+      allow delete: if isAdminUtama();
+    }
+
+    match /absensi/{absensiId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdminPAC() || isAdminUtama();
+      allow update, delete: if isAdminUtama();
+    }
+  }
+}

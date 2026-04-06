@@ -1,0 +1,5 @@
+{
+  "name": "SIMAK Ansor Tasikmalaya",
+  "description": "Sistem Informasi Manajemen Kaderisasi GP Ansor Tasikmalaya",
+  "requestFramePermissions": ["camera"]
+}

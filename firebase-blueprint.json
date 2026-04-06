@@ -1,0 +1,98 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and role information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin_utama", "admin_pac", "peserta"] },
+        "pac_name": { "type": "string", "description": "Name of the PAC for admin_pac" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Kaderisasi": {
+      "title": "Kaderisasi",
+      "description": "Information about a kaderisasi event",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nama": { "type": "string" },
+        "jenis": { "type": "string" },
+        "tanggal": { "type": "string", "format": "date" },
+        "lokasi": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "created_by": { "type": "string", "description": "UID of the PAC admin" },
+        "pac_name": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nama", "jenis", "tanggal", "lokasi", "status", "created_by"]
+    },
+    "Materi": {
+      "title": "Materi",
+      "description": "Materials for a specific kaderisasi type",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nama": { "type": "string" },
+        "kaderisasi_type": { "type": "string" }
+      },
+      "required": ["nama", "kaderisasi_type"]
+    },
+    "Peserta": {
+      "title": "Peserta",
+      "description": "Participant in a kaderisasi event",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nama": { "type": "string" },
+        "nik": { "type": "string" },
+        "alamat": { "type": "string" },
+        "no_hp": { "type": "string" },
+        "foto": { "type": "string", "description": "Base64 or URL" },
+        "kegiatan_id": { "type": "string" },
+        "status_kelulusan": { "type": "string", "enum": ["pending", "lulus", "tidak_lulus"] },
+        "qr_code": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nama", "nik", "kegiatan_id", "status_kelulusan"]
+    },
+    "Absensi": {
+      "title": "Absensi",
+      "description": "Attendance record for a participant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "peserta_id": { "type": "string" },
+        "materi_id": { "type": "string" },
+        "kegiatan_id": { "type": "string" },
+        "waktu": { "type": "string", "format": "date-time" }
+      },
+      "required": ["peserta_id", "materi_id", "kegiatan_id", "waktu"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Collection of user profiles"
+    },
+    "kaderisasi": {
+      "schema": "Kaderisasi",
+      "description": "Collection of kaderisasi events"
+    },
+    "materi": {
+      "schema": "Materi",
+      "description": "Collection of materials per kaderisasi type"
+    },
+    "peserta": {
+      "schema": "Peserta",
+      "description": "Collection of participants"
+    },
+    "absensi": {
+      "schema": "Absensi",
+      "description": "Collection of attendance records"
+    }
+  }
+}
