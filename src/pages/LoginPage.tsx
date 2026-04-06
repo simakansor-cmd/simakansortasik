@@ -19,14 +19,21 @@ const LoginPage = () => {
     setLoading(true);
     
     // Auto-append @simak.com if no @ is present for username login
-    const finalEmail = email.includes('@') ? email : `${email}@simak.com`;
+    const trimmedEmail = email.trim();
+    const finalEmail = trimmedEmail.includes('@') ? trimmedEmail : `${trimmedEmail}@simak.com`;
     
     try {
+      console.log('Attempting login with:', finalEmail);
       await signInWithEmailAndPassword(auth, finalEmail, password);
       toast.success('Login berhasil!');
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error('Login gagal: ' + error.message);
+      console.error('Login error:', error.code, error.message);
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-email') {
+        toast.error('Username atau Password salah. Pastikan Anda sudah terdaftar.');
+      } else {
+        toast.error('Gagal masuk: ' + error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -41,12 +48,18 @@ const LoginPage = () => {
       // Check if user profile exists
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (!userDoc.exists()) {
-        // Create default profile for new users (default to peserta)
+        // Bootstrap admin role for specific emails
+        const finalRole = (user.email === 'adminsimak@simak.com' || 
+                           user.email === 'admin_utama@simak.com' || 
+                           user.email === 'kaderisasiansortasik@gmail.com') 
+          ? 'admin_utama' 
+          : 'peserta';
+
         await setDoc(doc(db, 'users', user.uid), {
           uid: user.uid,
           name: user.displayName || 'User',
           email: user.email,
-          role: 'peserta',
+          role: finalRole,
           created_at: new Date().toISOString()
         });
       }
@@ -78,15 +91,15 @@ const LoginPage = () => {
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700 ml-1">Email</label>
+            <label className="text-sm font-medium text-slate-700 ml-1">Username / Email</label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
-                placeholder="nama@email.com"
+                placeholder="Username atau Email"
                 required
               />
             </div>

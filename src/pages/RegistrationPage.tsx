@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { collection, query, where, onSnapshot, addDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAuth } from '../components/AuthContext';
 import { toast } from 'sonner';
 import { APP_LOGO } from '../constants';
 import { 
@@ -16,7 +17,8 @@ import {
   Building2,
   ArrowRight,
   ChevronRight,
-  Search
+  Search,
+  LayoutDashboard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -27,6 +29,8 @@ import { id } from 'date-fns/locale';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 const RegistrationPage = () => {
+  const { user, isAdminUtama, isAdminPAC } = useAuth();
+  const navigate = useNavigate();
   const [events, setEvents] = useState<any[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [formData, setFormData] = useState({
@@ -101,13 +105,30 @@ const RegistrationPage = () => {
     pdf.save(`ID_Card_${registeredPeserta.nama}.pdf`);
   };
 
+  const handleFinish = () => {
+    if (user && (isAdminUtama || isAdminPAC)) {
+      navigate('/dashboard');
+    } else {
+      window.location.reload();
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4">
+    <div className={user ? "py-4" : "min-h-screen bg-slate-50 py-12 px-4"}>
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-end mb-4">
-          <Link to="/login" className="text-sm font-semibold text-green-600 hover:text-green-700 flex items-center gap-1 bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm transition-all">
-            Login Admin <ChevronRight className="w-4 h-4" />
-          </Link>
+        <div className="flex justify-between items-center mb-8">
+          {user && (isAdminUtama || isAdminPAC) ? (
+            <Link to="/dashboard" className="text-sm font-semibold text-slate-600 hover:text-green-600 flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm transition-all">
+              <LayoutDashboard className="w-4 h-4" /> Kembali ke Dashboard
+            </Link>
+          ) : (
+            <div />
+          )}
+          {!user && (
+            <Link to="/login" className="text-sm font-semibold text-green-600 hover:text-green-700 flex items-center gap-1 bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm transition-all">
+              Login Admin <ChevronRight className="w-4 h-4" />
+            </Link>
+          )}
         </div>
         <div className="text-center mb-12">
           <img 
@@ -365,10 +386,15 @@ const RegistrationPage = () => {
                         <img src={registeredPeserta.foto} alt={registeredPeserta.nama} className="w-full h-full object-cover" />
                       </div>
                       <h4 className="text-xl font-bold text-slate-800 leading-tight mb-1">{registeredPeserta.nama}</h4>
-                      <p className="text-sm text-slate-500 font-medium mb-4">{selectedEvent.nama}</p>
+                      <div className="flex flex-col gap-1 mb-4">
+                        <p className="text-sm text-slate-500 font-medium">{selectedEvent.nama}</p>
+                        <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase self-center">
+                          {selectedEvent.jenis}
+                        </span>
+                      </div>
                       
-                      <div className="mt-auto bg-slate-50 p-4 rounded-2xl border border-slate-100 w-full flex flex-col items-center">
-                        <QRCodeSVG value={registeredPeserta.qr_code} size={100} />
+                      <div className="mt-auto bg-slate-50 p-3 rounded-2xl border border-slate-100 w-full flex flex-col items-center">
+                        <QRCodeSVG value={registeredPeserta.qr_code} size={90} />
                         <span className="text-[10px] font-mono text-slate-400 mt-2">{registeredPeserta.qr_code}</span>
                       </div>
                     </div>
@@ -386,7 +412,7 @@ const RegistrationPage = () => {
                     <Download className="w-5 h-5" /> Unduh ID Card (PDF)
                   </button>
                   <button
-                    onClick={() => window.location.reload()}
+                    onClick={handleFinish}
                     className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-8 py-4 rounded-2xl font-bold transition-all"
                   >
                     Selesai

@@ -13,11 +13,14 @@ import {
   ChevronRight,
   ShieldCheck,
   Building2,
-  UserPlus
+  UserPlus,
+  UserCog
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+
+import { APP_LOGO } from '../constants';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -35,21 +38,27 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   };
 
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['admin_utama', 'admin_pac', 'peserta'] },
-    { name: 'Kaderisasi', path: '/kaderisasi', icon: Building2, roles: ['admin_utama', 'admin_pac'] },
-    { name: 'Pendaftaran', path: '/', icon: UserPlus, roles: ['admin_utama', 'admin_pac'] },
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, show: true },
+    { name: 'Kaderisasi', path: '/kaderisasi', icon: Building2, show: isAdminUtama || isAdminPAC },
+    { name: 'Daftar Peserta', path: '/participants', icon: Users, show: isAdminUtama || isAdminPAC },
+    { name: 'Absensi', path: '/absensi', icon: ClipboardCheck, show: isAdminUtama || isAdminPAC },
+    { name: 'Form Pendaftaran', path: '/', icon: UserPlus, show: isAdminUtama || isAdminPAC },
+    { name: 'Kelola Akun', path: '/accounts', icon: UserCog, show: isAdminUtama },
   ];
 
-  const filteredNavItems = navItems.filter(item => profile && item.roles.includes(profile.role));
+  const filteredNavItems = navItems.filter(item => item.show);
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar for Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 sticky top-0 h-screen">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-            S
-          </div>
+          <img 
+            src={APP_LOGO} 
+            alt="Logo" 
+            className="w-10 h-10 object-contain"
+            referrerPolicy="no-referrer"
+          />
           <div className="flex flex-col">
             <span className="font-bold text-slate-800 leading-tight">SIMAK</span>
             <span className="text-xs text-slate-500">Ansor Tasikmalaya</span>
@@ -103,7 +112,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-200 z-50 px-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-green-600 rounded flex items-center justify-center text-white font-bold">S</div>
+          <img 
+            src={APP_LOGO} 
+            alt="Logo" 
+            className="w-8 h-8 object-contain"
+            referrerPolicy="no-referrer"
+          />
           <span className="font-bold text-slate-800">SIMAK</span>
         </div>
         <button 
@@ -134,7 +148,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             >
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">S</div>
+                  <img 
+                    src={APP_LOGO} 
+                    alt="Logo" 
+                    className="w-10 h-10 object-contain"
+                    referrerPolicy="no-referrer"
+                  />
                   <span className="font-bold text-slate-800">SIMAK</span>
                 </div>
                 <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-slate-400">

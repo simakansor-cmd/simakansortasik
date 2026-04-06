@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
 import { collection, query, where, onSnapshot, doc, updateDoc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
 import { 
   Users, 
@@ -38,15 +39,33 @@ const ParticipantManagement = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const certificateRef = useRef<HTMLDivElement>(null);
   const [selectedPesertaForCert, setSelectedPesertaForCert] = useState<any>(null);
+  const [gradConfig, setGradConfig] = useState({ min_attendance: 75 });
 
   useEffect(() => {
     if (!kegiatanId) return;
+
+    const fetchConfig = async () => {
+      const docRef = doc(db, 'settings', 'graduation');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setGradConfig(docSnap.data() as any);
+      }
+    };
+    fetchConfig();
 
     const fetchKegiatan = async () => {
       const docRef = doc(db, 'kaderisasi', kegiatanId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
+        
+        // Access control for PAC Admin
+        if (isAdminPAC && !isAdminUtama && data.created_by !== profile?.uid) {
+          toast.error('Anda tidak memiliki akses ke kegiatan ini');
+          navigate('/dashboard');
+          return;
+        }
+
         setKegiatan({ id: docSnap.id, ...data });
         
         // Fetch materi for this type
@@ -229,9 +248,18 @@ const ParticipantManagement = () => {
                           style={{ width: `${(getAttendanceCount(p.id) / (materi.length || 1)) * 100}%` }}
                         />
                       </div>
-                      <span className="text-xs font-bold text-slate-600">
-                        {getAttendanceCount(p.id)}/{materi.length}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-slate-600">
+                          {getAttendanceCount(p.id)}/{materi.length}
+                        </span>
+                        <span className={`text-[9px] font-bold uppercase ${
+                          (getAttendanceCount(p.id) / (materi.length || 1)) * 100 >= gradConfig.min_attendance
+                            ? 'text-green-600'
+                            : 'text-red-500'
+                        }`}>
+                          {(getAttendanceCount(p.id) / (materi.length || 1)) * 100 >= gradConfig.min_attendance ? 'Layak' : 'Tdk Layak'}
+                        </span>
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-5">
@@ -320,10 +348,10 @@ const ParticipantManagement = () => {
                   <p className="text-xs text-slate-500">GP Ansor Tasikmalaya</p>
                 </div>
                 <div className="text-center">
-                  <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 mb-2">
-                    <QrCode className="w-16 h-16 text-slate-800" />
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 mb-2 flex items-center justify-center">
+                    <QRCodeSVG value={`SIMAK-${kegiatan.id}-${selectedPesertaForCert.nik}`} size={80} />
                   </div>
-                  <p className="text-[10px] font-mono text-slate-400">VERIFIED: {selectedPesertaForCert.id}</p>
+                  <p className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">VERIFIED: {selectedPesertaForCert.qr_code || selectedPesertaForCert.id}</p>
                 </div>
                 <div className="text-center">
                   <div className="w-32 h-0.5 bg-slate-300 mb-2 mx-auto" />

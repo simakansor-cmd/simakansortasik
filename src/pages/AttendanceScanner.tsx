@@ -20,7 +20,7 @@ import { Html5QrcodeScanner } from 'html5-qrcode';
 
 const AttendanceScanner = () => {
   const { kegiatanId } = useParams();
-  const { profile } = useAuth();
+  const { profile, isAdminUtama, isAdminPAC } = useAuth();
   const navigate = useNavigate();
   const [kegiatan, setKegiatan] = useState<any>(null);
   const [materi, setMateri] = useState<any[]>([]);
@@ -37,6 +37,14 @@ const AttendanceScanner = () => {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
+        
+        // Access control for PAC Admin
+        if (isAdminPAC && !isAdminUtama && data.created_by !== profile?.uid) {
+          toast.error('Anda tidak memiliki akses ke kegiatan ini');
+          navigate('/dashboard');
+          return;
+        }
+
         setKegiatan({ id: docSnap.id, ...data });
         
         // Fetch materi for this type

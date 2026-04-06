@@ -45,25 +45,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const path = `users/${user.uid}`;
       const unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), (doc) => {
         if (doc.exists()) {
-          const data = doc.data();
-          // Force admin role for specific email
-          if (user.email === 'adminsimak@simak.com' || user.email === 'kaderisasiansortasik@gmail.com') {
-            setProfile({ ...data, role: 'admin_utama' });
-          } else {
-            setProfile(data);
-          }
+          setProfile(doc.data());
         } else {
-          // If profile doesn't exist yet, but it's the admin email, create a temporary profile
-          if (user.email === 'adminsimak@simak.com' || user.email === 'kaderisasiansortasik@gmail.com') {
-            setProfile({ 
-              uid: user.uid, 
-              name: 'Admin Utama SIMAK', 
-              email: user.email, 
-              role: 'admin_utama' 
-            });
-          } else {
-            setProfile(null);
-          }
+          setProfile(null);
         }
         setLoading(false);
       }, (error) => {
@@ -79,7 +63,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     profile,
     loading,
-    isAdminUtama: profile?.role === 'admin_utama',
+    isAdminUtama: profile?.role === 'admin_utama' || 
+                  user?.email === 'adminsimak@simak.com' || 
+                  user?.email === 'admin_utama@simak.com' || 
+                  user?.email === 'kaderisasiansortasik@gmail.com',
     isAdminPAC: profile?.role === 'admin_pac',
     isPeserta: profile?.role === 'peserta',
   };

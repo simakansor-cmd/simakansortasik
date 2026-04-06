@@ -12,7 +12,9 @@ import {
   Calendar,
   MapPin,
   ChevronRight,
-  GraduationCap
+  GraduationCap,
+  UserCog,
+  ClipboardCheck
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
@@ -29,6 +31,7 @@ const Dashboard = () => {
   });
   const [recentKaderisasi, setRecentKaderisasi] = useState<any[]>([]);
   const [myKaderisasi, setMyKaderisasi] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -75,6 +78,12 @@ const Dashboard = () => {
           totalPeserta: pesertaCount,
           totalLulus: lulusCount
         });
+
+        if (isAdminUtama) {
+          const uSnapshot = await getDocs(collection(db, 'users'));
+          setUsers(uSnapshot.docs.map(d => d.data()));
+        }
+
         setLoading(false);
       });
       return () => unsubscribe();
@@ -96,8 +105,10 @@ const Dashboard = () => {
     <div className="space-y-8">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Assalamu'alaikum, {profile?.name}</h1>
-          <p className="text-slate-500 mt-1">Selamat datang di Dashboard SIMAK Ansor Tasikmalaya.</p>
+          <h1 className="text-3xl font-bold text-slate-900">
+            {isAdminUtama ? 'Dashboard Admin Utama' : isAdminPAC ? 'Dashboard Admin PAC' : 'Dashboard Peserta'}
+          </h1>
+          <p className="text-slate-500 mt-1">Assalamu'alaikum, {profile?.name}. Selamat datang di SIMAK Ansor Tasikmalaya.</p>
         </div>
         {isAdminPAC && (
           <Link 
@@ -136,6 +147,26 @@ const Dashboard = () => {
             icon={CheckCircle2} 
             color="indigo" 
           />
+          {isAdminPAC && (
+            <Link to="/absensi">
+              <StatCard 
+                title="Scan Absensi" 
+                value="Scan" 
+                icon={ClipboardCheck} 
+                color="green" 
+              />
+            </Link>
+          )}
+          {isAdminUtama && (
+            <Link to="/accounts">
+              <StatCard 
+                title="Kelola Akun" 
+                value={users.length} 
+                icon={UserCog} 
+                color="red" 
+              />
+            </Link>
+          )}
         </div>
       )}
 

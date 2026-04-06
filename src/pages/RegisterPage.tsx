@@ -22,14 +22,17 @@ const RegisterPage = () => {
     setLoading(true);
     
     // Auto-append @simak.com if no @ is present for username registration
-    const finalEmail = email.includes('@') ? email : `${email}@simak.com`;
+    const trimmedEmail = email.trim();
+    const finalEmail = trimmedEmail.includes('@') ? trimmedEmail : `${trimmedEmail}@simak.com`;
     
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, finalEmail, password);
       const user = userCredential.user;
       
       // Bootstrap admin role for specific emails
-      const finalRole = (finalEmail === 'adminsimak@simak.com' || finalEmail === 'kaderisasiansortasik@gmail.com') 
+      const finalRole = (finalEmail === 'adminsimak@simak.com' || 
+                         finalEmail === 'admin_utama@simak.com' || 
+                         finalEmail === 'kaderisasiansortasik@gmail.com') 
         ? 'admin_utama' 
         : role;
       
@@ -86,15 +89,15 @@ const RegisterPage = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700 ml-1">Email</label>
+            <label className="text-sm font-medium text-slate-700 ml-1">Username / Email</label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
-                placeholder="nama@email.com"
+                placeholder="Username atau Email"
                 required
               />
             </div>
