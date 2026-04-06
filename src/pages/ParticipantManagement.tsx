@@ -5,6 +5,7 @@ import { collection, query, where, onSnapshot, doc, updateDoc, getDoc, getDocs }
 import { db } from '../firebase';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
+import { APP_LOGO } from '../constants';
 import { 
   Users, 
   ArrowLeft, 
@@ -18,7 +19,8 @@ import {
   Award,
   Filter,
   MoreVertical,
-  FileText
+  FileText,
+  IdCard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import jsPDF from 'jspdf';
@@ -40,6 +42,9 @@ const ParticipantManagement = () => {
   const certificateRef = useRef<HTMLDivElement>(null);
   const [selectedPesertaForCert, setSelectedPesertaForCert] = useState<any>(null);
   const [gradConfig, setGradConfig] = useState({ min_attendance: 75 });
+  const [downloadingID, setDownloadingID] = useState(false);
+  const [currentDownloadPeserta, setCurrentDownloadPeserta] = useState<any>(null);
+  const idCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!kegiatanId) return;
@@ -117,6 +122,40 @@ const ParticipantManagement = () => {
       pdf.save(`Sertifikat_${peserta.nama}_${kegiatan.jenis}.pdf`);
       setSelectedPesertaForCert(null);
     }, 500);
+  };
+
+  const downloadIDCard = async (peserta: any) => {
+    setDownloadingID(true);
+    setCurrentDownloadPeserta(peserta);
+    
+    // Wait for DOM update
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    try {
+      if (idCardRef.current) {
+        const canvas = await html2canvas(idCardRef.current, { 
+          scale: 3,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff'
+        });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const imgProps = pdf.getImageProperties(imgData);
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save(`ID_Card_${peserta.nama}_${peserta.nik}.pdf`);
+        toast.success(`ID Card ${peserta.nama} berhasil didownload`);
+      }
+    } catch (error) {
+      console.error('Error downloading ID card:', error);
+      toast.error('Gagal mendownload ID Card');
+    } finally {
+      setDownloadingID(false);
+      setCurrentDownloadPeserta(null);
+    }
   };
 
   const filteredParticipants = participants.filter(p => {
@@ -299,6 +338,13 @@ const ParticipantManagement = () => {
                           <Award className="w-5 h-5" />
                         </button>
                       )}
+                      <button 
+                        onClick={() => downloadIDCard(p)}
+                        className="p-2 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition-all"
+                        title="Unduh ID Card"
+                      >
+                        <IdCard className="w-5 h-5" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -312,6 +358,90 @@ const ParticipantManagement = () => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Hidden ID Card Template for PDF Generation */}
+      <div className="fixed -left-[9999px] top-0">
+        {currentDownloadPeserta && (
+          <div 
+            ref={idCardRef}
+            className="w-[380px] h-[580px] bg-white flex flex-col relative"
+            style={{ padding: '0', margin: '0' }}
+          >
+            {/* Header Section */}
+            <div className="h-32 bg-green-700 relative flex flex-col items-center justify-center overflow-hidden">
+              {/* Decorative Background Patterns */}
+              <div className="absolute top-0 left-0 w-full h-full opacity-10">
+                <div className="absolute -top-10 -left-10 w-40 h-40 bg-white rounded-full" />
+                <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white rounded-full" />
+              </div>
+              
+              {/* Logo Container - Perfectly Centered */}
+              <div className="relative z-10 w-20 h-20 bg-white rounded-2xl p-2.5 shadow-xl flex items-center justify-center">
+                <img 
+                  src={APP_LOGO} 
+                  alt="Logo" 
+                  className="w-full h-full object-contain" 
+                  crossOrigin="anonymous"
+                  referrerPolicy="no-referrer" 
+                />
+              </div>
+            </div>
+            
+            {/* Content Section */}
+            <div className="flex-1 flex flex-col items-center px-8 pt-10 pb-8 bg-white">
+              {/* Photo - Symmetrical Circle */}
+              <div className="w-32 h-32 rounded-full border-[5px] border-white shadow-2xl overflow-hidden mb-6 -mt-20 relative z-20 bg-slate-100">
+                <img 
+                  src={currentDownloadPeserta.foto} 
+                  alt={currentDownloadPeserta.nama} 
+                  className="w-full h-full object-cover" 
+                  crossOrigin="anonymous"
+                />
+              </div>
+              
+              {/* Identity Info */}
+              <div className="space-y-2 mb-6 w-full">
+                <h4 className="text-2xl font-black text-slate-900 leading-tight uppercase tracking-tight text-center">
+                  {currentDownloadPeserta.nama}
+                </h4>
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-sm text-slate-500 font-bold text-center max-w-[280px]">
+                    {kegiatan.nama}
+                  </p>
+                  <span className="inline-flex items-center px-5 py-1.5 rounded-full bg-green-100 text-green-700 text-[11px] font-black uppercase tracking-[0.15em]">
+                    {kegiatan.jenis}
+                  </span>
+                </div>
+              </div>
+              
+              {/* QR Code Section - Centered and Proportional */}
+              <div className="mt-auto flex flex-col items-center w-full">
+                <div className="bg-slate-50 p-5 rounded-[2.5rem] border-2 border-slate-100 shadow-inner flex items-center justify-center">
+                  <QRCodeSVG 
+                    value={currentDownloadPeserta.qr_code} 
+                    size={120} 
+                    level="H" 
+                    includeMargin={true} 
+                  />
+                </div>
+                <div className="mt-4 flex flex-col items-center">
+                  <span className="text-[11px] font-black text-slate-900 tracking-[0.25em] font-mono uppercase">
+                    {currentDownloadPeserta.qr_code}
+                  </span>
+                  <div className="h-1.5 w-16 bg-green-600 rounded-full mt-3" />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Strip */}
+            <div className="h-3 bg-green-700 w-full flex">
+              <div className="flex-1 bg-green-800" />
+              <div className="flex-1 bg-green-600" />
+              <div className="flex-1 bg-green-700" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Hidden Certificate Template for PDF Generation */}

@@ -2,10 +2,70 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: Firebase Auth UID
+    // Fields:
+    //   - uid: string (required) - User's unique ID
+    //   - name: string (required) - Full name
+    //   - email: string (required) - Email address
+    //   - role: string (required) - admin_utama, admin_pac, peserta
+    //   - pac_name: string (optional) - PAC name for admin_pac
+    //   - created_at: string (optional) - ISO 8601 timestamp
+    //
+    // Collection: kaderisasi
+    // Document ID: Auto-generated
+    // Fields:
+    //   - nama: string (required) - Event name
+    //   - jenis: string (required) - Event type (PKD, PKL, etc.)
+    //   - tanggal: string (required) - Event date
+    //   - lokasi: string (required) - Event location
+    //   - status: string (required) - pending, approved, rejected
+    //   - created_by: string (required) - UID of creator
+    //   - pac_name: string (required) - PAC name
+    //   - created_at: string (required) - ISO 8601 timestamp
+    //
+    // Collection: materi
+    // Document ID: Auto-generated
+    // Fields:
+    //   - nama: string (required) - Material name
+    //   - kaderisasi_type: string (required) - Associated event type
+    //
+    // Collection: peserta
+    // Document ID: Auto-generated
+    // Fields:
+    //   - nama: string (required) - Participant name
+    //   - nik: string (required) - National ID number
+    //   - alamat: string (optional) - Address
+    //   - no_hp: string (optional) - Phone number
+    //   - foto: string (optional) - Photo URL or base64
+    //   - kegiatan_id: string (required) - ID of kaderisasi event
+    //   - status_kelulusan: string (required) - pending, lulus, tidak_lulus
+    //   - qr_code: string (optional) - QR code string
+    //   - created_at: string (required) - ISO 8601 timestamp
+    //
+    // Collection: absensi
+    // Document ID: Auto-generated
+    // Fields:
+    //   - peserta_id: string (required) - ID of participant
+    //   - materi_id: string (required) - ID of material
+    //   - kegiatan_id: string (required) - ID of kaderisasi event
+    //   - waktu: string (required) - ISO 8601 timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
     // Helper Functions
     // ===============================================================
+    
     function isAuthenticated() {
       return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
     }
     
     function getUserData() {
@@ -14,22 +74,80 @@ service cloud.firestore {
     
     function isAdminUtama() {
       return isAuthenticated() && 
-        (getUserData().role == 'admin_utama' || 
-         request.auth.token.email == 'adminsimak@simak.com' ||
-         request.auth.token.email == 'kaderisasiansortasik@gmail.com');
+        (request.auth.token.email == 'adminsimak@simak.com' || 
+         request.auth.token.email == 'kaderisasiansortasik@gmail.com' ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          getUserData().role == 'admin_utama'));
     }
     
     function isAdminPAC() {
-      return isAuthenticated() && getUserData().role == 'admin_pac';
-    }
-    
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             getUserData().role == 'admin_pac';
     }
 
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}.*");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
     function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'name', 'email', 'role']) &&
-             data.role in ['admin_utama', 'admin_pac', 'peserta'];
+      return hasRequiredFields(['uid', 'name', 'email', 'role']) &&
+             data.uid is string && data.uid.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             isValidEmail(data.email) &&
+             data.role in ['admin_utama', 'admin_pac', 'peserta'] &&
+             (!('pac_name' in data) || (data.pac_name is string && data.pac_name.size() < 100));
+    }
+
+    function isValidKaderisasi(data) {
+      return hasRequiredFields(['nama', 'jenis', 'tanggal', 'lokasi', 'status', 'created_by', 'pac_name', 'created_at']) &&
+             data.nama is string && data.nama.size() > 0 && data.nama.size() < 200 &&
+             data.jenis is string &&
+             isValidDateString(data.tanggal) &&
+             data.lokasi is string && data.lokasi.size() > 0 &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.created_by is string &&
+             data.pac_name is string &&
+             isValidDateString(data.created_at);
+    }
+
+    function isValidMateri(data) {
+      return hasRequiredFields(['nama', 'kaderisasi_type']) &&
+             data.nama is string && data.nama.size() > 0 && data.nama.size() < 200 &&
+             data.kaderisasi_type is string;
+    }
+
+    function isValidPeserta(data) {
+      return hasRequiredFields(['nama', 'nik', 'kegiatan_id', 'status_kelulusan', 'created_at']) &&
+             data.nama is string && data.nama.size() > 0 && data.nama.size() < 100 &&
+             data.nik is string && data.nik.size() >= 16 && data.nik.size() <= 20 &&
+             data.kegiatan_id is string &&
+             data.status_kelulusan in ['pending', 'lulus', 'tidak_lulus'] &&
+             isValidDateString(data.created_at);
+    }
+
+    function isValidAbsensi(data) {
+      return hasRequiredFields(['peserta_id', 'materi_id', 'kegiatan_id', 'waktu']) &&
+             data.peserta_id is string &&
+             data.materi_id is string &&
+             data.kegiatan_id is string &&
+             isValidDateString(data.waktu);
     }
 
     // ===============================================================
@@ -37,35 +155,64 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
+      // PII Protection: Only owner or Admin Utama can read
       allow read: if isAuthenticated() && (isOwner(userId) || isAdminUtama());
-      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role;
+      
+      // Create: Owner can create their own profile, or Admin Utama can create any
+      allow create: if isAuthenticated() && 
+                    isValidUser(request.resource.data) && 
+                    (isOwner(userId) || isAdminUtama());
+      
+      // Update: Owner can update their own profile (but not role unless Admin), or Admin Utama can update any
+      allow update: if isAuthenticated() && 
+                    isValidUser(request.resource.data) && 
+                    (isAdminUtama() || 
+                     (isOwner(userId) && request.resource.data.role == resource.data.role));
+      
+      allow delete: if isAdminUtama();
     }
 
     match /kaderisasi/{kegiatanId} {
-      // Allow public read for approved events
+      // Public read for approved events, or authenticated for all
       allow read: if resource.data.status == 'approved' || isAuthenticated();
-      allow create: if isAdminPAC() || isAdminUtama();
-      allow update: if isAdminUtama() || (isAdminPAC() && resource.data.created_by == request.auth.uid && resource.data.status == 'pending');
+      
+      allow create: if (isAdminPAC() || isAdminUtama()) && isValidKaderisasi(request.resource.data);
+      
+      allow update: if (isAdminUtama() || 
+                       (isAdminPAC() && resource.data.created_by == request.auth.uid && resource.data.status == 'pending')) &&
+                    isValidKaderisasi(request.resource.data);
+      
       allow delete: if isAdminUtama();
     }
 
     match /materi/{materiId} {
       allow read: if isAuthenticated();
-      allow write: if isAdminUtama();
+      allow write: if isAdminUtama() && isValidMateri(request.resource.data);
     }
 
     match /peserta/{pesertaId} {
+      // Read: Authenticated users can read (needed for admins to manage and participants to see status)
+      // Note: PII is present, but admins need access.
       allow read: if isAuthenticated();
-      allow create: if true; // Public registration allowed
-      allow update: if isAdminPAC() || isAdminUtama();
+      
+      // Create: Public registration allowed
+      allow create: if isValidPeserta(request.resource.data);
+      
+      // Update: Admins can update status/details
+      allow update: if (isAdminPAC() || isAdminUtama()) && isValidPeserta(request.resource.data);
+      
       allow delete: if isAdminUtama();
     }
 
     match /absensi/{absensiId} {
       allow read: if isAuthenticated();
-      allow create: if isAdminPAC() || isAdminUtama();
+      allow create: if (isAdminPAC() || isAdminUtama()) && isValidAbsensi(request.resource.data);
       allow update, delete: if isAdminUtama();
+    }
+
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminUtama();
     }
   }
 }

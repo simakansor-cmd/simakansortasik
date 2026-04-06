@@ -371,36 +371,81 @@ const RegistrationPage = () => {
                 <div className="flex justify-center mb-10">
                   <div 
                     ref={idCardRef}
-                    className="w-[350px] h-[500px] bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden flex flex-col relative"
+                    className="w-[380px] h-[580px] bg-white border border-slate-200 rounded-[3rem] shadow-2xl overflow-hidden flex flex-col relative"
+                    style={{ padding: '0', margin: '0' }}
                   >
-                    {/* Header */}
-                    <div className="bg-green-700 p-6 text-white text-center">
-                      <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-green-700 font-bold text-2xl mx-auto mb-2">S</div>
-                      <h3 className="font-bold text-lg leading-tight">SIMAK ANSOR</h3>
-                      <p className="text-[10px] opacity-80 tracking-widest uppercase">Tasikmalaya</p>
-                    </div>
-                    
-                    {/* Body */}
-                    <div className="flex-1 p-6 flex flex-col items-center text-center">
-                      <div className="w-32 h-40 bg-slate-100 rounded-2xl border-4 border-white shadow-lg mb-4 overflow-hidden">
-                        <img src={registeredPeserta.foto} alt={registeredPeserta.nama} className="w-full h-full object-cover" />
-                      </div>
-                      <h4 className="text-xl font-bold text-slate-800 leading-tight mb-1">{registeredPeserta.nama}</h4>
-                      <div className="flex flex-col gap-1 mb-4">
-                        <p className="text-sm text-slate-500 font-medium">{selectedEvent.nama}</p>
-                        <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase self-center">
-                          {selectedEvent.jenis}
-                        </span>
+                    {/* Header Section */}
+                    <div className="h-32 bg-green-700 relative flex flex-col items-center justify-center overflow-hidden">
+                      {/* Decorative Background Patterns */}
+                      <div className="absolute top-0 left-0 w-full h-full opacity-10">
+                        <div className="absolute -top-10 -left-10 w-40 h-40 bg-white rounded-full" />
+                        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white rounded-full" />
                       </div>
                       
-                      <div className="mt-auto bg-slate-50 p-3 rounded-2xl border border-slate-100 w-full flex flex-col items-center">
-                        <QRCodeSVG value={registeredPeserta.qr_code} size={90} />
-                        <span className="text-[10px] font-mono text-slate-400 mt-2">{registeredPeserta.qr_code}</span>
+                      {/* Logo Container - Perfectly Centered */}
+                      <div className="relative z-10 w-20 h-20 bg-white rounded-2xl p-2.5 shadow-xl flex items-center justify-center">
+                        <img 
+                          src={APP_LOGO} 
+                          alt="Logo" 
+                          className="w-full h-full object-contain" 
+                          crossOrigin="anonymous"
+                          referrerPolicy="no-referrer" 
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Content Section */}
+                    <div className="flex-1 flex flex-col items-center px-8 pt-10 pb-8 bg-white">
+                      {/* Photo - Symmetrical Circle */}
+                      <div className="w-32 h-32 rounded-full border-[5px] border-white shadow-2xl overflow-hidden mb-6 -mt-20 relative z-20 bg-slate-100">
+                        <img 
+                          src={registeredPeserta.foto} 
+                          alt={registeredPeserta.nama} 
+                          className="w-full h-full object-cover" 
+                          crossOrigin="anonymous"
+                        />
+                      </div>
+                      
+                      {/* Identity Info */}
+                      <div className="space-y-2 mb-6 w-full">
+                        <h4 className="text-2xl font-black text-slate-900 leading-tight uppercase tracking-tight text-center">
+                          {registeredPeserta.nama}
+                        </h4>
+                        <div className="flex flex-col items-center gap-2">
+                          <p className="text-sm text-slate-500 font-bold text-center max-w-[280px]">
+                            {selectedEvent.nama}
+                          </p>
+                          <span className="inline-flex items-center px-5 py-1.5 rounded-full bg-green-100 text-green-700 text-[11px] font-black uppercase tracking-[0.15em]">
+                            {selectedEvent.jenis}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* QR Code Section - Centered and Proportional */}
+                      <div className="mt-auto flex flex-col items-center w-full">
+                        <div className="bg-slate-50 p-5 rounded-[2.5rem] border-2 border-slate-100 shadow-inner flex items-center justify-center">
+                          <QRCodeSVG 
+                            value={registeredPeserta.qr_code} 
+                            size={120} 
+                            level="H" 
+                            includeMargin={true} 
+                          />
+                        </div>
+                        <div className="mt-4 flex flex-col items-center">
+                          <span className="text-[11px] font-black text-slate-900 tracking-[0.25em] font-mono uppercase">
+                            {registeredPeserta.qr_code}
+                          </span>
+                          <div className="h-1.5 w-16 bg-green-600 rounded-full mt-3" />
+                        </div>
                       </div>
                     </div>
 
-                    {/* Footer Decoration */}
-                    <div className="h-2 bg-green-600 w-full" />
+                    {/* Footer Strip */}
+                    <div className="h-3 bg-green-700 w-full flex">
+                      <div className="flex-1 bg-green-800" />
+                      <div className="flex-1 bg-green-600" />
+                      <div className="flex-1 bg-green-700" />
+                    </div>
                   </div>
                 </div>
 

@@ -16,7 +16,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 
 const AttendanceScanner = () => {
   const { kegiatanId } = useParams();
@@ -27,7 +27,7 @@ const AttendanceScanner = () => {
   const [selectedMateri, setSelectedMateri] = useState<string>('');
   const [recentAbsensi, setRecentAbsensi] = useState<any[]>([]);
   const [scanning, setScanning] = useState(false);
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
   useEffect(() => {
     if (!kegiatanId) return;
@@ -76,38 +76,59 @@ const AttendanceScanner = () => {
 
     return () => {
       unsubscribeAbsensi();
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch(console.error);
+      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+        html5QrCodeRef.current.stop().catch(console.error);
       }
     };
   }, [kegiatanId]);
 
-  const startScanner = () => {
+  const startScanner = async () => {
     if (!selectedMateri) return toast.error('Pilih materi terlebih dahulu');
     setScanning(true);
     
     // Give a small delay for the DOM to render the reader div
-    setTimeout(() => {
-      const scanner = new Html5QrcodeScanner(
-        "reader", 
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        /* verbose= */ false
-      );
-      
-      scanner.render(onScanSuccess, onScanFailure);
-      scannerRef.current = scanner;
-    }, 100);
+    setTimeout(async () => {
+      try {
+        const html5QrCode = new Html5Qrcode("reader");
+        html5QrCodeRef.current = html5QrCode;
+
+        const config = { 
+          fps: 10, 
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+            const qrboxSize = Math.floor(minEdgeSize * 0.7);
+            return {
+              width: qrboxSize,
+              height: qrboxSize
+            };
+          }
+        };
+
+        // Prefer back camera
+        await html5QrCode.start(
+          { facingMode: "environment" }, 
+          config, 
+          onScanSuccess, 
+          onScanFailure
+        );
+      } catch (err: any) {
+        console.error("Failed to start scanner", err);
+        toast.error("Gagal membuka kamera: " + err);
+        setScanning(false);
+      }
+    }, 300);
   };
 
-  const stopScanner = () => {
-    if (scannerRef.current) {
-      scannerRef.current.clear().then(() => {
+  const stopScanner = async () => {
+    if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+      try {
+        await html5QrCodeRef.current.stop();
         setScanning(false);
-        scannerRef.current = null;
-      }).catch(err => {
-        console.error("Failed to clear scanner", err);
+        html5QrCodeRef.current = null;
+      } catch (err) {
+        console.error("Failed to stop scanner", err);
         setScanning(false);
-      });
+      }
     } else {
       setScanning(false);
     }
