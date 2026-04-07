@@ -122,7 +122,7 @@ const Dashboard = () => {
       </header>
 
       {(isAdminUtama || isAdminPAC) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           <StatCard 
             title="Total Kaderisasi" 
             value={stats.totalKaderisasi} 
@@ -184,25 +184,25 @@ const Dashboard = () => {
             </div>
             <div className="divide-y divide-slate-50">
               {recentKaderisasi.length > 0 ? recentKaderisasi.map((item) => (
-                <div key={item.id} className="p-6 hover:bg-slate-50 transition-colors flex items-center justify-between group">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg ${
+                <div key={item.id} className="p-4 md:p-6 hover:bg-slate-50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
+                  <div className="flex items-center gap-3 md:gap-4">
+                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center font-bold text-base md:text-lg shrink-0 ${
                       item.status === 'approved' ? 'bg-green-100 text-green-700' : 
                       item.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
                     }`}>
                       {item.jenis.charAt(0)}
                     </div>
-                    <div>
-                      <h3 className="font-bold text-slate-800 group-hover:text-green-700 transition-colors">{item.nama}</h3>
-                      <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-slate-800 group-hover:text-green-700 transition-colors truncate">{item.nama}</h3>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-slate-500 mt-1">
                         <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {item.lokasi}</span>
-                        <span>•</span>
+                        <span className="hidden sm:inline">•</span>
                         <span>{format(new Date(item.tanggal), 'dd MMMM yyyy', { locale: id })}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                  <div className="flex items-center justify-between sm:justify-end gap-4">
+                    <span className={`px-3 py-1 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider ${
                       item.status === 'approved' ? 'bg-green-100 text-green-700' : 
                       item.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
                     }`}>
@@ -265,14 +265,14 @@ const StatCard = ({ title, value, icon: Icon, color }: any) => {
   return (
     <motion.div 
       whileHover={{ y: -4 }}
-      className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"
+      className="bg-white p-4 md:p-6 rounded-2xl md:rounded-3xl border border-slate-100 shadow-sm"
     >
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${colors[color]}`}>
-        <Icon className="w-6 h-6" />
+      <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center mb-3 md:mb-4 ${colors[color]}`}>
+        <Icon className="w-5 h-5 md:w-6 md:h-6" />
       </div>
       <div className="flex flex-col">
-        <span className="text-3xl font-bold text-slate-900">{value}</span>
-        <span className="text-sm text-slate-500 mt-1">{title}</span>
+        <span className="text-xl md:text-3xl font-bold text-slate-900">{value}</span>
+        <span className="text-[10px] md:text-sm text-slate-500 mt-0.5 md:mt-1 uppercase md:capitalize tracking-wider md:tracking-normal">{title}</span>
       </div>
     </motion.div>
   );
