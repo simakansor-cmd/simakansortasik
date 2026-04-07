@@ -36,8 +36,15 @@ const RegistrationPage = () => {
   const [formData, setFormData] = useState({
     nama: '',
     nik: '',
+    asal_pac: '',
+    asal_ranting: '',
+    tempat_lahir: '',
+    tanggal_lahir: '',
+    pendidikan_terakhir: '',
     alamat: '',
     no_hp: '',
+    email: '',
+    pekerjaan: '',
     foto: ''
   });
   const [step, setStep] = useState(1);
@@ -275,6 +282,74 @@ const RegistrationPage = () => {
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Asal PAC</label>
+                        <input
+                          type="text"
+                          required
+                          value={formData.asal_pac}
+                          onChange={(e) => setFormData({ ...formData, asal_pac: e.target.value })}
+                          className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                          placeholder="PAC Mana?"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Asal Ranting</label>
+                        <input
+                          type="text"
+                          required
+                          value={formData.asal_ranting}
+                          onChange={(e) => setFormData({ ...formData, asal_ranting: e.target.value })}
+                          className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                          placeholder="Ranting Mana?"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Tempat Lahir</label>
+                        <input
+                          type="text"
+                          required
+                          value={formData.tempat_lahir}
+                          onChange={(e) => setFormData({ ...formData, tempat_lahir: e.target.value })}
+                          className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                          placeholder="Kota/Kab"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-700 ml-1">Tanggal Lahir</label>
+                        <input
+                          type="date"
+                          required
+                          value={formData.tanggal_lahir}
+                          onChange={(e) => setFormData({ ...formData, tanggal_lahir: e.target.value })}
+                          className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Pendidikan Terakhir</label>
+                      <select
+                        required
+                        value={formData.pendidikan_terakhir}
+                        onChange={(e) => setFormData({ ...formData, pendidikan_terakhir: e.target.value })}
+                        className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                      >
+                        <option value="">Pilih Pendidikan</option>
+                        <option value="SD">SD</option>
+                        <option value="SMP">SMP</option>
+                        <option value="SMA/SMK">SMA/SMK</option>
+                        <option value="D3">D3</option>
+                        <option value="S1">S1</option>
+                        <option value="S2">S2</option>
+                        <option value="S3">S3</option>
+                      </select>
+                    </div>
+
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700 ml-1">Nomor WhatsApp</label>
                       <div className="relative">
@@ -288,6 +363,30 @@ const RegistrationPage = () => {
                           placeholder="0812xxxx"
                         />
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Alamat Email Aktif</label>
+                      <input
+                        type="email"
+                        required
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                        placeholder="contoh@email.com"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700 ml-1">Pekerjaan</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.pekerjaan}
+                        onChange={(e) => setFormData({ ...formData, pekerjaan: e.target.value })}
+                        className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
+                        placeholder="Pekerjaan saat ini"
+                      />
                     </div>
                   </div>
 

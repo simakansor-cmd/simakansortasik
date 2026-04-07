@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { APP_LOGO } from '../constants';
 import { 
   Users, 
+  User,
   ArrowLeft, 
   CheckCircle2, 
   XCircle, 
@@ -28,6 +29,13 @@ import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 
+const DetailItem = ({ label, value }: { label: string, value: string }) => (
+  <div className="space-y-1">
+    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</div>
+    <div className="text-sm font-semibold text-slate-700">{value || '-'}</div>
+  </div>
+);
+
 const ParticipantManagement = () => {
   const { kegiatanId } = useParams();
   const { profile, isAdminUtama, isAdminPAC } = useAuth();
@@ -39,6 +47,7 @@ const ParticipantManagement = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedPesertaForDetails, setSelectedPesertaForDetails] = useState<any>(null);
   const certificateRef = useRef<HTMLDivElement>(null);
   const [selectedPesertaForCert, setSelectedPesertaForCert] = useState<any>(null);
   const [gradConfig, setGradConfig] = useState({ min_attendance: 75 });
@@ -338,6 +347,13 @@ const ParticipantManagement = () => {
                         </button>
                       )}
                       <button 
+                        onClick={() => setSelectedPesertaForDetails(p)}
+                        className="p-2 bg-slate-50 text-slate-600 hover:bg-slate-200 rounded-lg transition-all"
+                        title="Detail Peserta"
+                      >
+                        <FileText className="w-5 h-5" />
+                      </button>
+                      <button 
                         onClick={() => downloadIDCard(p)}
                         className="p-2 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded-lg transition-all"
                         title="Unduh ID Card"
@@ -359,7 +375,79 @@ const ParticipantManagement = () => {
         </div>
       </div>
 
-      {/* Hidden ID Card Template for PDF Generation */}
+      {/* Participant Details Modal */}
+      <AnimatePresence>
+        {selectedPesertaForDetails && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedPesertaForDetails(null)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <User className="w-6 h-6 text-green-600" />
+                  Detail Peserta
+                </h2>
+                <button onClick={() => setSelectedPesertaForDetails(null)} className="p-2 hover:bg-white rounded-xl text-slate-400">
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="p-8 overflow-y-auto max-h-[80vh]">
+                <div className="flex flex-col md:flex-row gap-8">
+                  <div className="w-full md:w-40 shrink-0">
+                    <div className="aspect-[2/3] rounded-2xl bg-slate-100 border-4 border-white shadow-lg overflow-hidden">
+                      <img src={selectedPesertaForDetails.foto} alt={selectedPesertaForDetails.nama} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="mt-4 text-center">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
+                        selectedPesertaForDetails.status_kelulusan === 'lulus' ? 'bg-green-100 text-green-700' : 
+                        selectedPesertaForDetails.status_kelulusan === 'tidak_lulus' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {selectedPesertaForDetails.status_kelulusan}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+                    <DetailItem label="Nama Lengkap" value={selectedPesertaForDetails.nama} />
+                    <DetailItem label="NIK" value={selectedPesertaForDetails.nik} />
+                    <DetailItem label="Asal PAC" value={selectedPesertaForDetails.asal_pac} />
+                    <DetailItem label="Asal Ranting" value={selectedPesertaForDetails.asal_ranting} />
+                    <DetailItem label="Tempat Lahir" value={selectedPesertaForDetails.tempat_lahir} />
+                    <DetailItem label="Tanggal Lahir" value={selectedPesertaForDetails.tanggal_lahir ? format(new Date(selectedPesertaForDetails.tanggal_lahir), 'dd MMMM yyyy', { locale: id }) : '-'} />
+                    <DetailItem label="Pendidikan Terakhir" value={selectedPesertaForDetails.pendidikan_terakhir} />
+                    <DetailItem label="Pekerjaan" value={selectedPesertaForDetails.pekerjaan} />
+                    <DetailItem label="No. Telp / WA" value={selectedPesertaForDetails.no_hp} />
+                    <DetailItem label="Email" value={selectedPesertaForDetails.email} />
+                    <div className="sm:col-span-2">
+                      <DetailItem label="Alamat Sesuai KTP" value={selectedPesertaForDetails.alamat} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button 
+                  onClick={() => setSelectedPesertaForDetails(null)}
+                  className="px-6 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-all"
+                >
+                  Tutup
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       <div className="fixed -left-[9999px] top-0">
         {currentDownloadPeserta && (
           <div 
