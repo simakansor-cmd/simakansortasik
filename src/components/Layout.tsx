@@ -27,7 +27,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { profile, isAdminUtama, isAdminPAC } = useAuth();
+  const { profile, isAdminUtama, isAdminPAC, isPeserta } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -42,7 +42,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { name: 'Kaderisasi', path: '/kaderisasi', icon: Building2, show: isAdminUtama || isAdminPAC },
     { name: 'Daftar Peserta', path: '/participants', icon: Users, show: isAdminUtama || isAdminPAC },
     { name: 'Absensi', path: '/absensi', icon: ClipboardCheck, show: isAdminUtama || isAdminPAC },
-    { name: 'Form Pendaftaran', path: '/', icon: UserPlus, show: isAdminUtama || isAdminPAC },
+    { name: 'Form Pendaftaran', path: '/', icon: UserPlus, show: isAdminUtama || isAdminPAC || isPeserta },
     { name: 'Kelola Akun', path: '/accounts', icon: UserCog, show: isAdminUtama },
   ];
 

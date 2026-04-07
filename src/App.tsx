@@ -13,6 +13,7 @@ import AccountManagement from './pages/AccountManagement';
 import AttendanceScanner from './pages/AttendanceScanner';
 import AttendancePage from './pages/AttendancePage';
 import RegistrationPage from './pages/RegistrationPage';
+import CheckInPage from './pages/CheckInPage';
 import { Toaster } from 'sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -97,6 +98,8 @@ export default function App() {
                 <Layout><AttendancePage /></Layout>
               </ProtectedRoute>
             } />
+            
+            <Route path="/check-in/:kegiatanId" element={<CheckInPage />} />
             
             <Route path="*" element={<Navigate to="/dashboard" />} />
           </Routes>

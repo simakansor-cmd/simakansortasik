@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { collection, query, where, onSnapshot, addDoc, doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, query, where, onSnapshot, addDoc, doc, getDoc, setDoc, getDocs } from 'firebase/firestore';
+import { db, auth } from '../firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuth } from '../components/AuthContext';
 import { toast } from 'sonner';
 import { APP_LOGO } from '../constants';
@@ -81,14 +82,75 @@ const RegistrationPage = () => {
     setLoading(true);
     const path = 'peserta';
     try {
+      // 0. Check for existing registration for this event
+      const existingQ = query(
+        collection(db, 'peserta'), 
+        where('kegiatan_id', '==', selectedEvent.id),
+        where('nik', '==', formData.nik)
+      );
+      const existingDocs = await getDocs(existingQ);
+      if (!existingDocs.empty) {
+        toast.error('NIK ini sudah terdaftar untuk kegiatan ini.');
+        setLoading(false);
+        return;
+      }
+
       const qrCode = `SIMAK-${selectedEvent.id}-${formData.nik}`;
+      
+      // 1. Create Peserta Document
       const docRef = await addDoc(collection(db, 'peserta'), {
         ...formData,
         kegiatan_id: selectedEvent.id,
         status_kelulusan: 'pending',
+        status: 'Calon Peserta',
         qr_code: qrCode,
         created_at: new Date().toISOString()
       });
+
+      // 2. Create or Update User Account
+      try {
+        if (auth.currentUser && auth.currentUser.email === formData.email) {
+          // If user is already logged in with this email, update their profile
+          await setDoc(doc(db, 'users', auth.currentUser.uid), {
+            uid: auth.currentUser.uid,
+            name: formData.nama,
+            email: formData.email,
+            role: 'peserta',
+            peserta_id: docRef.id,
+            kegiatan_id: selectedEvent.id,
+            nik: formData.nik,
+            updated_at: new Date().toISOString()
+          }, { merge: true });
+          toast.success('Profil akun diperbarui dengan kegiatan baru!');
+        } else {
+          // Try to create new account
+          try {
+            const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.nik);
+            await setDoc(doc(db, 'users', userCredential.user.uid), {
+              uid: userCredential.user.uid,
+              name: formData.nama,
+              email: formData.email,
+              role: 'peserta',
+              peserta_id: docRef.id,
+              kegiatan_id: selectedEvent.id,
+              nik: formData.nik,
+              created_at: new Date().toISOString()
+            });
+            toast.success('Akun peserta otomatis dibuat!');
+          } catch (authError: any) {
+            if (authError.code === 'auth/email-already-in-use') {
+              // Email exists, but we can't update without UID. 
+              // We just inform them.
+              toast.warning('Email sudah terdaftar. Silakan login untuk mengakses dashboard kegiatan ini.');
+            } else {
+              throw authError;
+            }
+          }
+        }
+      } catch (authError: any) {
+        console.error("Error handling auth user:", authError);
+        toast.error('Gagal memproses akun: ' + authError.message);
+      }
       
       setRegisteredPeserta({ id: docRef.id, ...formData, qr_code: qrCode });
       setStep(3);

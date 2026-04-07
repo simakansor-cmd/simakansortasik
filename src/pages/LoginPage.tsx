@@ -91,6 +91,11 @@ const LoginPage = () => {
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4">
+            <p className="text-[10px] text-blue-700 leading-relaxed">
+              <strong>Info Peserta:</strong> Jika Anda sudah mendaftar, silakan login menggunakan <strong>Email</strong> sebagai username dan <strong>NIK</strong> sebagai password.
+            </p>
+          </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700 ml-1">Username / Email</label>
             <div className="relative">

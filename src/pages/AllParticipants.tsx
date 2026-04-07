@@ -547,12 +547,19 @@ const AllParticipants = () => {
                     <div className="text-xs text-slate-400 mt-0.5">{p.no_hp}</div>
                   </td>
                   <td className="px-6 py-5">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                      p.status_kelulusan === 'lulus' ? 'bg-green-100 text-green-700' : 
-                      p.status_kelulusan === 'tidak_lulus' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-                    }`}>
-                      {p.status_kelulusan}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest w-fit ${
+                        p.status === 'Peserta' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {p.status || 'Calon Peserta'}
+                      </span>
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest w-fit ${
+                        p.status_kelulusan === 'lulus' ? 'bg-green-100 text-green-700' : 
+                        p.status_kelulusan === 'tidak_lulus' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {p.status_kelulusan}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-5 text-right">
                     <div className="flex items-center justify-end gap-2">

@@ -37,6 +37,7 @@ const AccountManagement = () => {
   
   // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   
   // Form States
@@ -47,6 +48,7 @@ const AccountManagement = () => {
     role: 'peserta',
     pac_name: ''
   });
+  const [editingUser, setEditingUser] = useState<any>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -91,40 +93,40 @@ const AccountManagement = () => {
     
     let secondaryApp;
     try {
-      // Check if user already exists in Firestore first
+      // 1. Check if user already exists in Firestore first (by email)
       const q = query(collection(db, 'users'), where('email', '==', newUser.email));
       const querySnapshot = await getDocs(q);
       
       if (!querySnapshot.empty) {
-        // User exists in Firestore, just update the role and name
+        // User exists in Firestore, just update the role and name "at will"
         const existingDoc = querySnapshot.docs[0];
         await updateDoc(doc(db, 'users', existingDoc.id), {
           name: newUser.name,
           role: newUser.role,
           pac_name: newUser.role === 'admin_pac' ? newUser.pac_name : '',
+          updated_at: new Date().toISOString()
         });
-        toast.success('Data akun berhasil diperbarui (Email sudah terdaftar)');
+        toast.success(`Akun ${newUser.email} berhasil diperbarui dengan role ${newUser.role}`);
         setShowAddModal(false);
         setNewUser({ name: '', email: '', password: '', role: 'peserta', pac_name: '' });
         setIsSubmitting(false);
         return;
       }
 
-      // Create a secondary app to avoid logging out the admin
+      // 2. If not in Firestore, try to create in Auth
       const appName = `secondary-app-${Date.now()}`;
       secondaryApp = initializeApp(firebaseConfig, appName);
       const secondaryAuth = getAuth(secondaryApp);
       
-      // 1. Create Auth Account
-      const finalPassword = padPassword(newUser.password);
-      const userCredential = await createUserWithEmailAndPassword(
-        secondaryAuth, 
-        newUser.email, 
-        finalPassword
-      );
-      
-      // 2. Create Firestore Profile
       try {
+        const finalPassword = padPassword(newUser.password || 'ansor123'); // Default password if empty
+        const userCredential = await createUserWithEmailAndPassword(
+          secondaryAuth, 
+          newUser.email, 
+          finalPassword
+        );
+        
+        // 3. Create Firestore Profile
         await setDoc(doc(db, 'users', userCredential.user.uid), {
           uid: userCredential.user.uid,
           name: newUser.name,
@@ -133,18 +135,50 @@ const AccountManagement = () => {
           pac_name: newUser.role === 'admin_pac' ? newUser.pac_name : '',
           created_at: new Date().toISOString()
         });
-      } catch (error: any) {
-        handleFirestoreError(error, OperationType.WRITE, `users/${userCredential.user.uid}`);
+        
+        toast.success(`Akun baru ${newUser.email} berhasil dibuat sebagai ${newUser.role}`);
+      } catch (authError: any) {
+        if (authError.code === 'auth/email-already-in-use') {
+          // This means user is in Auth but NOT in Firestore (ghost user)
+          // We can't get the UID, so we'll create a record with a generated ID 
+          // and hope they sync on next login, OR just inform the admin.
+          // Actually, let's try to be "at will" and create a record anyway with a random ID
+          // but that might cause issues. Better to inform that they need to login.
+          toast.warning(`Email ${newUser.email} sudah ada di sistem autentikasi. Silakan minta pengguna untuk login agar data tersinkronisasi.`);
+        } else {
+          throw authError;
+        }
       }
 
-      toast.success('Akun berhasil ditambahkan secara manual');
       setShowAddModal(false);
       setNewUser({ name: '', email: '', password: '', role: 'peserta', pac_name: '' });
     } catch (error: any) {
       console.error(error);
-      toast.error('Gagal menambahkan akun: ' + (error.code === 'auth/email-already-in-use' ? 'Email sudah terdaftar' : error.message));
+      toast.error('Gagal memproses akun: ' + error.message);
     } finally {
       if (secondaryApp) await deleteApp(secondaryApp);
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setIsSubmitting(true);
+    
+    try {
+      await updateDoc(doc(db, 'users', editingUser.id), {
+        name: editingUser.name,
+        role: editingUser.role,
+        pac_name: editingUser.role === 'admin_pac' ? editingUser.pac_name : '',
+        updated_at: new Date().toISOString()
+      });
+      toast.success('Data akun berhasil diperbarui');
+      setShowEditModal(false);
+      setEditingUser(null);
+    } catch (error: any) {
+      toast.error('Gagal memperbarui akun: ' + error.message);
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -385,13 +419,25 @@ const AccountManagement = () => {
                     )}
                   </td>
                   <td className="px-6 py-5 text-right">
-                    <button 
-                      onClick={() => setDeleteConfirm({ id: u.id, name: u.name })}
-                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                      title="Hapus Akun"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button 
+                        onClick={() => {
+                          setEditingUser(u);
+                          setShowEditModal(true);
+                        }}
+                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                        title="Edit Akun"
+                      >
+                        <UserCog className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => setDeleteConfirm({ id: u.id, name: u.name })}
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        title="Hapus Akun"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )) : (
@@ -519,6 +565,97 @@ const AccountManagement = () => {
                   className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-green-200 transition-all disabled:opacity-50 mt-4"
                 >
                   {isSubmitting ? 'Memproses...' : 'Tambah Akun'}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit User Modal */}
+      <AnimatePresence>
+        {showEditModal && editingUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowEditModal(false);
+                setEditingUser(null);
+              }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <UserCog className="w-6 h-6 text-blue-600" />
+                  Edit Akun Pengguna
+                </h2>
+                <button onClick={() => {
+                  setShowEditModal(false);
+                  setEditingUser(null);
+                }} className="p-2 hover:bg-white rounded-xl text-slate-400">
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <form onSubmit={handleEditUser} className="p-6 space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Nama Lengkap</label>
+                  <input 
+                    type="text"
+                    required
+                    value={editingUser.name}
+                    onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Email (Tidak dapat diubah)</label>
+                  <input 
+                    type="email"
+                    disabled
+                    value={editingUser.email}
+                    className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-slate-500 outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Role</label>
+                  <select 
+                    value={editingUser.role}
+                    onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  >
+                    <option value="peserta">Peserta</option>
+                    <option value="admin_pac">Admin PAC</option>
+                    <option value="admin_utama">Admin Utama</option>
+                  </select>
+                </div>
+                {editingUser.role === 'admin_pac' && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Nama PAC</label>
+                    <input 
+                      type="text"
+                      required
+                      value={editingUser.pac_name}
+                      onChange={(e) => setEditingUser({ ...editingUser, pac_name: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                )}
+                
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-200 transition-all disabled:opacity-50 mt-4"
+                >
+                  {isSubmitting ? 'Memproses...' : 'Simpan Perubahan'}
                 </button>
               </form>
             </motion.div>

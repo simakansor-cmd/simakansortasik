@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
 import { collection, query, where, onSnapshot, addDoc, doc, getDoc, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
+import { APP_LOGO } from '../constants';
+import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
 import { 
   QrCode, 
@@ -13,7 +15,9 @@ import {
   Users, 
   History,
   Camera,
-  RefreshCw
+  RefreshCw,
+  Download,
+  Printer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -27,7 +31,9 @@ const AttendanceScanner = () => {
   const [selectedMateri, setSelectedMateri] = useState<string>('');
   const [recentAbsensi, setRecentAbsensi] = useState<any[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [showEventQR, setShowEventQR] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+  const eventQrRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!kegiatanId) return;
@@ -183,6 +189,14 @@ const AttendanceScanner = () => {
         waktu: new Date().toISOString()
       });
 
+      // Update status to 'Peserta' if it's currently 'Calon Peserta'
+      if (peserta.data().status === 'Calon Peserta') {
+        const { updateDoc } = await import('firebase/firestore');
+        await updateDoc(doc(db, 'peserta', pesertaId), {
+          status: 'Peserta'
+        });
+      }
+
       toast.success(`Absensi berhasil: ${peserta.data().nama}`);
       
       // Stop scanner briefly to show success or just continue
@@ -210,6 +224,103 @@ const AttendanceScanner = () => {
           <p className="text-slate-500 mt-1">{kegiatan?.nama}</p>
         </div>
       </header>
+
+      <div className="flex flex-wrap gap-4">
+        <button 
+          onClick={() => setShowEventQR(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-50 transition-all shadow-sm"
+        >
+          <QrCode className="w-5 h-5 text-green-600" />
+          Generate QR Check-in Mandiri
+        </button>
+      </div>
+
+      {/* Event QR Modal */}
+      <AnimatePresence>
+        {showEventQR && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowEventQR(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <QrCode className="w-6 h-6 text-green-600" />
+                  QR Check-in Mandiri
+                </h2>
+                <button onClick={() => setShowEventQR(false)} className="p-2 hover:bg-white rounded-xl text-slate-400">
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="p-8 flex flex-col items-center gap-6">
+                <div ref={eventQrRef} className="p-6 bg-white border-4 border-slate-100 rounded-3xl shadow-inner">
+                  <QRCodeSVG 
+                    value={`${window.location.origin}/check-in/${kegiatanId}`}
+                    size={240}
+                    level="H"
+                    includeMargin={true}
+                    imageSettings={{
+                      src: APP_LOGO,
+                      x: undefined,
+                      y: undefined,
+                      height: 40,
+                      width: 40,
+                      excavate: true,
+                    }}
+                  />
+                </div>
+                
+                <div className="text-center space-y-2">
+                  <h3 className="font-bold text-slate-800 text-lg">{kegiatan?.nama}</h3>
+                  <p className="text-sm text-slate-500 leading-relaxed">
+                    Peserta dapat melakukan check-in mandiri dengan men-scan QR ini menggunakan HP mereka.
+                  </p>
+                </div>
+
+                <div className="flex gap-3 w-full">
+                  <button 
+                    onClick={() => {
+                      const canvas = eventQrRef.current?.querySelector('svg');
+                      if (canvas) {
+                        const svgData = new XMLSerializer().serializeToString(canvas);
+                        const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+                        const url = URL.createObjectURL(svgBlob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `QR-Checkin-${kegiatan?.nama}.svg`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all"
+                  >
+                    <Download className="w-4 h-4" />
+                    Unduh QR
+                  </button>
+                  <button 
+                    onClick={() => window.print()}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-all"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Cetak
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-6">
