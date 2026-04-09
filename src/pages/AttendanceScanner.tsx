@@ -17,10 +17,12 @@ import {
   Camera,
   RefreshCw,
   Download,
-  Printer
+  Printer,
+  UserCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Html5Qrcode } from 'html5-qrcode';
+import FaceScanner from '../components/FaceScanner';
 
 const AttendanceScanner = () => {
   const { kegiatanId } = useParams();
@@ -31,6 +33,7 @@ const AttendanceScanner = () => {
   const [selectedMateri, setSelectedMateri] = useState<string>('');
   const [recentAbsensi, setRecentAbsensi] = useState<any[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [scannerType, setScannerType] = useState<'qr' | 'face'>('qr');
   const [showEventQR, setShowEventQR] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const eventQrRef = useRef<HTMLDivElement>(null);
@@ -140,6 +143,55 @@ const AttendanceScanner = () => {
     }
   };
 
+  const recordAbsensi = async (pesertaId: string) => {
+    if (!selectedMateri) {
+      toast.error('Pilih materi terlebih dahulu');
+      return;
+    }
+
+    try {
+      const pDoc = await getDoc(doc(db, 'peserta', pesertaId));
+      if (!pDoc.exists()) {
+        toast.error('Peserta tidak ditemukan');
+        return;
+      }
+
+      const pesertaData = pDoc.data();
+
+      // Check if already absensi for this materi
+      const aQuery = query(collection(db, 'absensi'), 
+        where('peserta_id', '==', pesertaId), 
+        where('materi_id', '==', selectedMateri)
+      );
+      const aSnapshot = await getDocs(aQuery);
+      
+      if (!aSnapshot.empty) {
+        toast.warning(`${pesertaData.nama} sudah absen untuk materi ini`);
+        return;
+      }
+
+      // Record absensi
+      await addDoc(collection(db, 'absensi'), {
+        peserta_id: pesertaId,
+        materi_id: selectedMateri,
+        kegiatan_id: kegiatanId,
+        waktu: new Date().toISOString()
+      });
+
+      // Update status to 'Peserta' if it's currently 'Calon Peserta'
+      if (pesertaData.status === 'Calon Peserta') {
+        const { updateDoc } = await import('firebase/firestore');
+        await updateDoc(doc(db, 'peserta', pesertaId), {
+          status: 'Peserta'
+        });
+      }
+
+      toast.success(`Absensi berhasil: ${pesertaData.nama}`);
+    } catch (error: any) {
+      toast.error('Gagal mencatat absensi: ' + error.message);
+    }
+  };
+
   const onScanSuccess = async (decodedText: string) => {
     // Expected format: SIMAK-kegiatanId-nik
     const parts = decodedText.split('-');
@@ -166,43 +218,9 @@ const AttendanceScanner = () => {
         return;
       }
 
-      const peserta = pSnapshot.docs[0];
-      const pesertaId = peserta.id;
-
-      // Check if already absensi for this materi
-      const aQuery = query(collection(db, 'absensi'), 
-        where('peserta_id', '==', pesertaId), 
-        where('materi_id', '==', selectedMateri)
-      );
-      const aSnapshot = await getDocs(aQuery);
-      
-      if (!aSnapshot.empty) {
-        toast.warning(`${peserta.data().nama} sudah absen untuk materi ini`);
-        return;
-      }
-
-      // Record absensi
-      await addDoc(collection(db, 'absensi'), {
-        peserta_id: pesertaId,
-        materi_id: selectedMateri,
-        kegiatan_id: kegiatanId,
-        waktu: new Date().toISOString()
-      });
-
-      // Update status to 'Peserta' if it's currently 'Calon Peserta'
-      if (peserta.data().status === 'Calon Peserta') {
-        const { updateDoc } = await import('firebase/firestore');
-        await updateDoc(doc(db, 'peserta', pesertaId), {
-          status: 'Peserta'
-        });
-      }
-
-      toast.success(`Absensi berhasil: ${peserta.data().nama}`);
-      
-      // Stop scanner briefly to show success or just continue
-      // stopScanner();
+      await recordAbsensi(pSnapshot.docs[0].id);
     } catch (error: any) {
-      toast.error('Gagal mencatat absensi: ' + error.message);
+      toast.error('Gagal mencari peserta: ' + error.message);
     }
   };
 
@@ -226,12 +244,36 @@ const AttendanceScanner = () => {
       </header>
 
       <div className="flex flex-wrap gap-4">
+        <div className="flex bg-white border border-slate-200 rounded-2xl p-1 shadow-sm">
+          <button 
+            onClick={() => {
+              setScannerType('qr');
+              if (scanning) stopScanner();
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+              scannerType === 'qr' ? 'bg-green-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            <QrCode className="w-4 h-4" /> QR Scanner
+          </button>
+          <button 
+            onClick={() => {
+              setScannerType('face');
+              if (scanning) stopScanner();
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+              scannerType === 'face' ? 'bg-green-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            <UserCheck className="w-4 h-4" /> Face Scanner
+          </button>
+        </div>
         <button 
           onClick={() => setShowEventQR(true)}
           className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-50 transition-all shadow-sm"
         >
           <QrCode className="w-5 h-5 text-green-600" />
-          Generate QR Check-in Mandiri
+          QR Check-in Mandiri
         </button>
       </div>
 
@@ -343,16 +385,16 @@ const AttendanceScanner = () => {
               </div>
             </div>
 
-            {!scanning ? (
+            {!scanning && scannerType === 'qr' ? (
               <button
                 onClick={startScanner}
                 disabled={!selectedMateri}
                 className="w-full bg-green-600 hover:bg-green-700 text-white py-6 rounded-2xl font-bold shadow-xl shadow-green-200 transition-all flex flex-col items-center justify-center gap-3"
               >
                 <Camera className="w-10 h-10" />
-                <span>Mulai Scanning</span>
+                <span>Mulai Scanning QR</span>
               </button>
-            ) : (
+            ) : scannerType === 'qr' ? (
               <div className="space-y-4">
                 <div id="reader" className="overflow-hidden rounded-2xl border-2 border-green-500 bg-black aspect-square"></div>
                 <button
@@ -362,6 +404,16 @@ const AttendanceScanner = () => {
                   <RefreshCw className="w-5 h-5" />
                   Berhenti Scanning
                 </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <FaceScanner 
+                  kegiatanId={kegiatanId!} 
+                  onDetected={(pesertaId) => recordAbsensi(pesertaId)} 
+                />
+                <p className="text-xs text-slate-500 text-center italic">
+                  Arahkan kamera ke wajah peserta untuk absensi otomatis
+                </p>
               </div>
             )}
           </div>

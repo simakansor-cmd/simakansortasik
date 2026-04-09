@@ -29,6 +29,8 @@ import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
+import FaceEnrollment from '../components/FaceEnrollment';
+
 const RegistrationPage = () => {
   const { user, isAdminUtama, isAdminPAC } = useAuth();
   const navigate = useNavigate();
@@ -48,6 +50,7 @@ const RegistrationPage = () => {
     pekerjaan: '',
     foto: ''
   });
+  const [faceDescriptor, setFaceDescriptor] = useState<number[] | null>(null);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [registeredPeserta, setRegisteredPeserta] = useState<any>(null);
@@ -75,8 +78,7 @@ const RegistrationPage = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (descriptor?: number[]) => {
     if (!selectedEvent) return toast.error('Pilih kegiatan terlebih dahulu');
     
     setLoading(true);
@@ -104,6 +106,7 @@ const RegistrationPage = () => {
         status_kelulusan: 'pending',
         status: 'Calon Peserta',
         qr_code: qrCode,
+        face_descriptor: descriptor || faceDescriptor,
         created_at: new Date().toISOString()
       });
 
@@ -153,7 +156,7 @@ const RegistrationPage = () => {
       }
       
       setRegisteredPeserta({ id: docRef.id, ...formData, qr_code: qrCode });
-      setStep(3);
+      setStep(4);
       toast.success('Pendaftaran berhasil!');
     } catch (error: any) {
       handleFirestoreError(error, OperationType.CREATE, path);
@@ -186,6 +189,12 @@ const RegistrationPage = () => {
     }
   };
 
+  const handleDataSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEvent) return toast.error('Pilih kegiatan terlebih dahulu');
+    setStep(3);
+  };
+
   return (
     <div className={user ? "py-4" : "min-h-screen bg-slate-50 py-12 px-4"}>
       <div className="max-w-4xl mx-auto">
@@ -215,14 +224,14 @@ const RegistrationPage = () => {
 
         {/* Progress Steps */}
         <div className="flex items-center justify-center mb-12 gap-4">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <React.Fragment key={i}>
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
                 step >= i ? 'bg-green-600 text-white shadow-lg shadow-green-200' : 'bg-white text-slate-400 border border-slate-200'
               }`}>
                 {step > i ? <CheckCircle2 className="w-6 h-6" /> : i}
               </div>
-              {i < 3 && <div className={`w-12 h-0.5 ${step > i ? 'bg-green-600' : 'bg-slate-200'}`} />}
+              {i < 4 && <div className={`w-12 h-0.5 ${step > i ? 'bg-green-600' : 'bg-slate-200'}`} />}
             </React.Fragment>
           ))}
         </div>
@@ -300,7 +309,7 @@ const RegistrationPage = () => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
-              <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm space-y-8">
+              <form onSubmit={handleDataSubmit} className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm space-y-8">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                     <User className="w-6 h-6 text-green-600" />
@@ -515,9 +524,27 @@ const RegistrationPage = () => {
             </motion.div>
           )}
 
-          {step === 3 && registeredPeserta && (
-            <motion.div 
+          {step === 3 && (
+            <motion.div
               key="step3"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <FaceEnrollment 
+                userName={formData.nama}
+                onComplete={(descriptor) => {
+                  setFaceDescriptor(descriptor);
+                  handleSubmit(descriptor);
+                }}
+                onBack={() => setStep(2)}
+              />
+            </motion.div>
+          )}
+
+          {step === 4 && registeredPeserta && (
+            <motion.div 
+              key="step4"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="space-y-8"
