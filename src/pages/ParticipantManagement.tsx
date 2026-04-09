@@ -476,8 +476,6 @@ const ParticipantManagement = () => {
                   src={APP_LOGO} 
                   alt="Logo" 
                   className="w-full h-full object-contain" 
-                  crossOrigin="anonymous"
-                  referrerPolicy="no-referrer"
                 />
               </div>
             </div>

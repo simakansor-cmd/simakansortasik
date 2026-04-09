@@ -543,7 +543,7 @@ const Dashboard = () => {
           </div>
           <div className="relative z-10 flex items-center gap-8">
             <div className="w-24 h-24 bg-white rounded-3xl p-4 shadow-2xl">
-              <img src={APP_LOGO} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+              <img src={APP_LOGO} alt="Logo" className="w-full h-full object-contain" />
             </div>
             <div className="text-white">
               <h1 className="text-4xl font-black tracking-tighter uppercase">QR CHECK-IN MANDIRI</h1>

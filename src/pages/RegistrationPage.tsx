@@ -208,7 +208,6 @@ const RegistrationPage = () => {
             src={APP_LOGO} 
             alt="Logo" 
             className="w-24 h-24 mx-auto mb-6 object-contain"
-            referrerPolicy="no-referrer"
           />
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Pendaftaran Kaderisasi</h1>
           <p className="text-slate-500 mt-3 text-lg">GP Ansor Tasikmalaya</p>
@@ -553,8 +552,6 @@ const RegistrationPage = () => {
                           src={APP_LOGO} 
                           alt="Logo" 
                           className="w-full h-full object-contain" 
-                          crossOrigin="anonymous"
-                          referrerPolicy="no-referrer"
                         />
                       </div>
                     </div>

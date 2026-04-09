@@ -95,7 +95,7 @@ const CheckInPage = () => {
             <QrCode className="w-64 h-64 -rotate-12 -translate-x-10 -translate-y-10" />
           </div>
           
-          <img src={APP_LOGO} alt="Logo" className="w-20 h-20 mx-auto mb-4 relative z-10 drop-shadow-lg" referrerPolicy="no-referrer" />
+          <img src={APP_LOGO} alt="Logo" className="w-20 h-20 mx-auto mb-4 relative z-10 drop-shadow-lg" />
           <h1 className="text-2xl font-black tracking-tight relative z-10">CHECK-IN MANDIRI</h1>
           <p className="text-green-100 text-sm font-medium relative z-10 opacity-90">{kegiatan?.nama || 'Memuat...'}</p>
         </div>

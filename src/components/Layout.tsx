@@ -57,7 +57,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             src={APP_LOGO} 
             alt="Logo" 
             className="w-10 h-10 object-contain"
-            referrerPolicy="no-referrer"
           />
           <div className="flex flex-col">
             <span className="font-bold text-slate-800 leading-tight">SIMAK</span>
@@ -116,7 +115,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             src={APP_LOGO} 
             alt="Logo" 
             className="w-8 h-8 object-contain"
-            referrerPolicy="no-referrer"
           />
           <span className="font-bold text-slate-800">SIMAK</span>
         </div>
@@ -152,7 +150,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                     src={APP_LOGO} 
                     alt="Logo" 
                     className="w-10 h-10 object-contain"
-                    referrerPolicy="no-referrer"
                   />
                   <span className="font-bold text-slate-800">SIMAK</span>
                 </div>

@@ -81,7 +81,6 @@ const RegisterPage = () => {
             src={APP_LOGO} 
             alt="Logo" 
             className="w-20 h-20 mx-auto mb-4 object-contain"
-            referrerPolicy="no-referrer"
           />
           <h1 className="text-2xl font-bold text-slate-900">Daftar Akun</h1>
           <p className="text-slate-500 mt-2">Buat akun SIMAK Ansor Tasikmalaya</p>
