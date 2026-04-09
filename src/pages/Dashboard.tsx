@@ -48,7 +48,13 @@ const Dashboard = () => {
   const qrPdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!profile) return;
+    // If AuthContext is still loading, wait
+    if (!profile && !isAdminUtama && !isPeserta) {
+      // If we don't have enough info yet, but AuthContext says it's done loading,
+      // we should still stop the dashboard loading spinner
+      const timer = setTimeout(() => setLoading(false), 2000);
+      return () => clearTimeout(timer);
+    }
 
     let q;
     if (isAdminUtama) {
@@ -616,6 +622,7 @@ const StatCard = ({ title, value, icon: Icon, color }: any) => {
     amber: 'bg-amber-50 text-amber-600',
     green: 'bg-green-50 text-green-600',
     indigo: 'bg-indigo-50 text-indigo-600',
+    red: 'bg-red-50 text-red-600',
   };
 
   return (
