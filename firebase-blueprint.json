@@ -55,7 +55,6 @@
         "kegiatan_id": { "type": "string" },
         "status_kelulusan": { "type": "string", "enum": ["pending", "lulus", "tidak_lulus"] },
         "qr_code": { "type": "string" },
-        "face_descriptor": { "type": "array", "items": { "type": "number" }, "description": "Facial recognition descriptor" },
         "created_at": { "type": "string", "format": "date-time" }
       },
       "required": ["nama", "nik", "kegiatan_id", "status_kelulusan"]

@@ -17,12 +17,10 @@ import {
   Camera,
   RefreshCw,
   Download,
-  Printer,
-  UserCheck
+  Printer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Html5Qrcode } from 'html5-qrcode';
-import FaceScanner from '../components/FaceScanner';
 
 const AttendanceScanner = () => {
   const { kegiatanId } = useParams();
@@ -33,7 +31,6 @@ const AttendanceScanner = () => {
   const [selectedMateri, setSelectedMateri] = useState<string>('');
   const [recentAbsensi, setRecentAbsensi] = useState<any[]>([]);
   const [scanning, setScanning] = useState(false);
-  const [scannerType, setScannerType] = useState<'qr' | 'face'>('qr');
   const [showEventQR, setShowEventQR] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const eventQrRef = useRef<HTMLDivElement>(null);
@@ -244,30 +241,6 @@ const AttendanceScanner = () => {
       </header>
 
       <div className="flex flex-wrap gap-4">
-        <div className="flex bg-white border border-slate-200 rounded-2xl p-1 shadow-sm">
-          <button 
-            onClick={() => {
-              setScannerType('qr');
-              if (scanning) stopScanner();
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-              scannerType === 'qr' ? 'bg-green-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
-            }`}
-          >
-            <QrCode className="w-4 h-4" /> QR Scanner
-          </button>
-          <button 
-            onClick={() => {
-              setScannerType('face');
-              if (scanning) stopScanner();
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-              scannerType === 'face' ? 'bg-green-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
-            }`}
-          >
-            <UserCheck className="w-4 h-4" /> Face Scanner
-          </button>
-        </div>
         <button 
           onClick={() => setShowEventQR(true)}
           className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-50 transition-all shadow-sm"
@@ -385,16 +358,16 @@ const AttendanceScanner = () => {
               </div>
             </div>
 
-            {!scanning && scannerType === 'qr' ? (
+            {!scanning ? (
               <button
                 onClick={startScanner}
                 disabled={!selectedMateri}
                 className="w-full bg-green-600 hover:bg-green-700 text-white py-6 rounded-2xl font-bold shadow-xl shadow-green-200 transition-all flex flex-col items-center justify-center gap-3"
               >
                 <Camera className="w-10 h-10" />
-                <span>Mulai Scanning QR</span>
+                <span>Mulai Scanning</span>
               </button>
-            ) : scannerType === 'qr' ? (
+            ) : (
               <div className="space-y-4">
                 <div id="reader" className="overflow-hidden rounded-2xl border-2 border-green-500 bg-black aspect-square"></div>
                 <button
@@ -404,16 +377,6 @@ const AttendanceScanner = () => {
                   <RefreshCw className="w-5 h-5" />
                   Berhenti Scanning
                 </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <FaceScanner 
-                  kegiatanId={kegiatanId!} 
-                  onDetected={(pesertaId) => recordAbsensi(pesertaId)} 
-                />
-                <p className="text-xs text-slate-500 text-center italic">
-                  Arahkan kamera ke wajah peserta untuk absensi otomatis
-                </p>
               </div>
             )}
           </div>

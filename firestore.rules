@@ -139,8 +139,7 @@ service cloud.firestore {
              data.nik is string && data.nik.size() >= 16 && data.nik.size() <= 20 &&
              data.kegiatan_id is string &&
              data.status_kelulusan in ['pending', 'lulus', 'tidak_lulus'] &&
-             isValidDateString(data.created_at) &&
-             (!('face_descriptor' in data) || (data.face_descriptor is list));
+             isValidDateString(data.created_at);
     }
 
     function isValidAbsensi(data) {
