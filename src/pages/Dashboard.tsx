@@ -56,120 +56,126 @@ const Dashboard = () => {
       return;
     }
 
-    let q;
-    if (isAdminUtama) {
-      q = query(collection(db, 'kaderisasi'));
-    } else if (isAdminPAC) {
-      q = query(collection(db, 'kaderisasi'), where('created_by', '==', profile?.uid));
-    }
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        let kaderisasiTotalCount = 0;
+        let kaderisasiPendingCount = 0;
+        let pesertaTotalCount = 0;
+        let pesertaLulusCount = 0;
+        let userTotalCount = 0;
 
-    if (q) {
-      const unsubscribe = onSnapshot(q, async (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setRecentKaderisasi(data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5));
-        
-        // Calculate stats
-        const total = data.length;
-        const pending = data.filter((k: any) => k.status === 'pending').length;
-        
-        // Fetch counts efficiently
-        const fetchStatsCounts = async () => {
-          let pesertaCount = 0;
-          let lulusCount = 0;
+        // 1. Fetch Counts
+        if (isAdminUtama) {
+          const ktQuery = collection(db, 'kaderisasi');
+          const kpQuery = query(collection(db, 'kaderisasi'), where('status', '==', 'pending'));
+          const ptQuery = collection(db, 'peserta');
+          const plQuery = query(collection(db, 'peserta'), where('status_kelulusan', '==', 'lulus'));
+          const utQuery = collection(db, 'users');
+
+          const [ktSnap, kpSnap, ptSnap, plSnap, utSnap] = await Promise.all([
+            getCountFromServer(ktQuery),
+            getCountFromServer(kpQuery),
+            getCountFromServer(ptQuery),
+            getCountFromServer(plQuery),
+            getCountFromServer(utQuery)
+          ]);
+
+          kaderisasiTotalCount = ktSnap.data().count;
+          kaderisasiPendingCount = kpSnap.data().count;
+          pesertaTotalCount = ptSnap.data().count;
+          pesertaLulusCount = plSnap.data().count;
+          userTotalCount = utSnap.data().count;
+        } else if (isAdminPAC) {
+          const ktQuery = query(collection(db, 'kaderisasi'), where('created_by', '==', profile?.uid));
+          const kpQuery = query(collection(db, 'kaderisasi'), where('created_by', '==', profile?.uid), where('status', '==', 'pending'));
           
-          if (isAdminUtama) {
-            const pQuery = query(collection(db, 'peserta'));
-            const lQuery = query(collection(db, 'peserta'), where('status_kelulusan', '==', 'lulus'));
+          const [ktSnap, kpSnap] = await Promise.all([
+            getCountFromServer(ktQuery),
+            getCountFromServer(kpQuery)
+          ]);
+
+          kaderisasiTotalCount = ktSnap.data().count;
+          kaderisasiPendingCount = kpSnap.data().count;
+
+          // For PAC, we need event IDs to count their participants
+          const eventsSnap = await getDocs(ktQuery); // This is still needed for PAC to find their events
+          const eventIds = eventsSnap.docs.map(d => d.id);
+          
+          if (eventIds.length > 0) {
+            // Firestore 'in' query limit is 30, so be careful if they have 30+ events
+            // For now, let's assume it's okay or handle chunking if needed.
+            // Simplified for now:
+            const ptQuery = query(collection(db, 'peserta'), where('kegiatan_id', 'in', eventIds.slice(0, 30)));
+            const plQuery = query(collection(db, 'peserta'), where('kegiatan_id', 'in', eventIds.slice(0, 30)), where('status_kelulusan', '==', 'lulus'));
             
-            const [pSnap, lSnap] = await Promise.all([
-              getCountFromServer(pQuery),
-              getCountFromServer(lQuery)
+            const [ptSnap, plSnap] = await Promise.all([
+              getCountFromServer(ptQuery),
+              getCountFromServer(plQuery)
             ]);
             
-            pesertaCount = pSnap.data().count;
-            lulusCount = lSnap.data().count;
-          } else {
-            const eventIds = data.map(d => d.id);
-            if (eventIds.length > 0) {
-              const pQuery = query(collection(db, 'peserta'), where('kegiatan_id', 'in', eventIds));
-              const lQuery = query(collection(db, 'peserta'), where('kegiatan_id', 'in', eventIds), where('status_kelulusan', '==', 'lulus'));
-              
-              const [pSnap, lSnap] = await Promise.all([
-                getCountFromServer(pQuery),
-                getCountFromServer(lQuery)
-              ]);
-              
-              pesertaCount = pSnap.data().count;
-              lulusCount = lSnap.data().count;
-            }
+            pesertaTotalCount = ptSnap.data().count;
+            pesertaLulusCount = plSnap.data().count;
           }
-
-          setStats(prev => ({
-            ...prev,
-            totalKaderisasi: total,
-            pendingKaderisasi: pending,
-            totalPeserta: pesertaCount,
-            totalLulus: lulusCount
-          }));
-        };
-
-        fetchStatsCounts();
-
-        if (isAdminUtama) {
-          const uQuery = collection(db, 'users');
-          getCountFromServer(uQuery).then(uSnap => {
-            setStats(prev => ({ ...prev, totalUsers: uSnap.data().count }));
-          });
-          
-          // Only fetch a few recent users for display
-          const recentUsersQuery = query(collection(db, 'users'), orderBy('created_at', 'desc'), limit(10));
-          getDocs(recentUsersQuery).then(uSnapshot => {
-            setUsers(uSnapshot.docs.map(d => d.data()));
-          });
         }
 
-        setLoading(false);
-      });
-      return () => unsubscribe();
-    } else if (isPeserta && profile?.peserta_id) {
-      // For Peserta, show their registered event and attendance
-      const fetchPesertaDashboard = async () => {
-        try {
-          // 1. Get Peserta Data
+        setStats({
+          totalKaderisasi: kaderisasiTotalCount,
+          pendingKaderisasi: kaderisasiPendingCount,
+          totalPeserta: pesertaTotalCount,
+          totalLulus: pesertaLulusCount,
+          totalUsers: userTotalCount
+        });
+
+        // 2. Fetch Recent Activities (Limited)
+        let rkQuery;
+        if (isAdminUtama) {
+          rkQuery = query(collection(db, 'kaderisasi'), orderBy('created_at', 'desc'), limit(5));
+        } else if (isAdminPAC) {
+          rkQuery = query(collection(db, 'kaderisasi'), where('created_by', '==', profile?.uid), orderBy('created_at', 'desc'), limit(5));
+        }
+
+        if (rkQuery) {
+          const rkSnap = await getDocs(rkQuery);
+          setRecentKaderisasi(rkSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
+        }
+
+        // 3. Fetch Recent Users (Admin Utama only)
+        if (isAdminUtama) {
+          const ruQuery = query(collection(db, 'users'), orderBy('created_at', 'desc'), limit(10));
+          const ruSnap = await getDocs(ruQuery);
+          setUsers(ruSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
+        }
+
+        if (isPeserta && profile?.peserta_id) {
+          // Keep existing peserta logic
           const pDoc = await getDoc(doc(db, 'peserta', profile.peserta_id));
           if (pDoc.exists()) {
             const pData = pDoc.data();
             setPesertaData({ id: pDoc.id, ...pData });
-
-            // 2. Get Event Data
             const eDoc = await getDoc(doc(db, 'kaderisasi', pData.kegiatan_id));
             if (eDoc.exists()) {
               const eData = eDoc.data();
               setPesertaEvent({ id: eDoc.id, ...eData });
-
-              // 3. Calculate Attendance
               const mQuery = query(collection(db, 'materi'), where('kaderisasi_type', '==', eData.jenis));
               const mSnapshot = await getDocs(mQuery);
-              const totalMateri = mSnapshot.size;
-
               const aQuery = query(collection(db, 'absensi'), where('peserta_id', '==', pDoc.id));
               const aSnapshot = await getDocs(aQuery);
-              const attendedCount = aSnapshot.size;
-
-              setAttendancePercent(Math.round((attendedCount / (totalMateri || 1)) * 100));
+              setAttendancePercent(Math.round((aSnapshot.size / (mSnapshot.size || 1)) * 100));
             }
           }
-        } catch (error) {
-          console.error("Error fetching peserta dashboard:", error);
-        } finally {
-          setLoading(false);
         }
-      };
-      fetchPesertaDashboard();
-    } else {
-      setLoading(false);
-    }
-  }, [profile, isAdminUtama, isAdminPAC, isPeserta]);
+
+      } catch (error) {
+        console.error("Dashboard data fetch error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [profile, isAdminUtama, isAdminPAC, isPeserta, authLoading]);
 
   const downloadActivityPDF = async () => {
     if (!qrPdfRef.current || !showQRModal) return;

@@ -57,10 +57,15 @@ const KaderisasiManagement = () => {
     const unsubscribeKaderisasi = onSnapshot(q, (snapshot) => {
       setKaderisasiList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
+    }, (error) => {
+      console.error("Kaderisasi query failed:", error);
+      setLoading(false);
     });
 
     const unsubscribeMateri = onSnapshot(collection(db, 'materi'), (snapshot) => {
       setMateriList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Materi query failed:", error);
     });
 
     return () => {

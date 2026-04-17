@@ -95,6 +95,9 @@ const ParticipantManagement = () => {
     const unsubscribeParticipants = onSnapshot(pQuery, (snapshot) => {
       setParticipants(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
+    }, (error) => {
+      console.error("Participants query failed:", error);
+      setLoading(false);
     });
 
     const aQuery = query(collection(db, 'absensi'), where('kegiatan_id', '==', kegiatanId));
