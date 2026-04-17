@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../components/AuthContext';
-import { collection, query, onSnapshot, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, getDocs, doc, getDoc, where, limit, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { 
   Users, 
@@ -51,21 +51,48 @@ const AllParticipants = () => {
 
   useEffect(() => {
     const fetchEvents = async () => {
-      const eSnapshot = await getDocs(collection(db, 'kaderisasi'));
+      let q = query(collection(db, 'kaderisasi'));
+      if (isAdminPAC && !isAdminUtama) {
+        q = query(q, where('created_by', '==', profile?.uid));
+      }
+      const eSnapshot = await getDocs(q);
       const eData = eSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setEvents(eData);
+      return eData;
     };
 
-    fetchEvents();
+    const fetchInitialData = async () => {
+      const eData = await fetchEvents();
+      
+      let pQuery = query(collection(db, 'peserta'), orderBy('created_at', 'desc'), limit(200));
+      
+      if (isAdminPAC && !isAdminUtama) {
+        const eventIds = eData.map(e => e.id);
+        if (eventIds.length > 0) {
+          pQuery = query(collection(db, 'peserta'), where('kegiatan_id', 'in', eventIds.slice(0, 30)), orderBy('created_at', 'desc'), limit(200));
+        } else {
+          setLoading(false);
+          return;
+        }
+      }
+      
+      const unsubscribe = onSnapshot(pQuery, (snapshot) => {
+        setParticipants(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setLoading(false);
+      });
 
-    const pQuery = collection(db, 'peserta');
-    const unsubscribe = onSnapshot(pQuery, (snapshot) => {
-      setParticipants(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoading(false);
+      return unsubscribe;
+    };
+
+    let unsubscribe: () => void;
+    fetchInitialData().then(sub => {
+      if (sub) unsubscribe = sub;
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [isAdminUtama, isAdminPAC, profile?.uid]);
 
   const getEventName = (eventId: string) => {
     return events.find(e => e.id === eventId)?.nama || 'Unknown Event';

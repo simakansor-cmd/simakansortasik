@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../components/AuthContext';
-import { collection, query, where, onSnapshot, doc, getDoc, setDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, setDoc, getDocs, getCountFromServer } from 'firebase/firestore';
 import { db } from '../firebase';
 import { 
   QrCode, 
@@ -22,12 +22,124 @@ import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { toast } from 'sonner';
 
+const KaderisasiStatRow = ({ item, materiList, isAdminPAC }: { item: any; materiList: any[]; isAdminPAC: boolean }) => {
+  const [stats, setStats] = useState({
+    pesertaCount: 0,
+    totalAbsensi: 0,
+    materiCount: 0,
+    avgAttendance: 0,
+    loading: true
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const eventMateri = materiList.filter(m => m.kaderisasi_type === item.jenis);
+        const materiCount = eventMateri.length;
+
+        // Fetch counts efficiently
+        const pQuery = query(collection(db, 'peserta'), where('kegiatan_id', '==', item.id));
+        const aQuery = query(collection(db, 'absensi'), where('kegiatan_id', '==', item.id));
+
+        const [pSnapshot, aSnapshot] = await Promise.all([
+          getCountFromServer(pQuery),
+          getCountFromServer(aQuery)
+        ]);
+
+        const pesertaCount = pSnapshot.data().count;
+        const totalAbsensi = aSnapshot.data().count;
+
+        setStats({
+          pesertaCount,
+          totalAbsensi,
+          materiCount,
+          avgAttendance: materiCount > 0 && pesertaCount > 0 
+            ? Math.round((totalAbsensi / (materiCount * pesertaCount)) * 100) 
+            : 0,
+          loading: false
+        });
+      } catch (error) {
+        console.error("Error fetching stats for", item.nama, error);
+        setStats(prev => ({ ...prev, loading: false }));
+      }
+    };
+
+    fetchStats();
+  }, [item.id, item.jenis, materiList]);
+
+  return (
+    <div className="p-6 hover:bg-slate-50 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-6 group">
+      <div className="flex items-center gap-4 flex-1">
+        <div className="w-14 h-14 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center font-bold text-xl">
+          {item.jenis.charAt(0)}
+        </div>
+        <div>
+          <h3 className="font-bold text-slate-800 group-hover:text-green-700 transition-colors text-lg">{item.nama}</h3>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500 mt-1">
+            <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {item.lokasi}</span>
+            <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {format(new Date(item.tanggal), 'dd MMM yyyy', { locale: id })}</span>
+            <span className="flex items-center gap-1 font-bold text-green-600"><Building2 className="w-3.5 h-3.5" /> {item.pac_name}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
+        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+          <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Materi</div>
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-blue-500" />
+            <span className="font-bold text-slate-700">{stats.materiCount}</span>
+          </div>
+        </div>
+        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+          <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Peserta</div>
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-indigo-500" />
+            <span className="font-bold text-slate-700">{stats.loading ? '...' : stats.pesertaCount}</span>
+          </div>
+        </div>
+        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+          <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Total Absen</div>
+          <div className="flex items-center gap-2">
+            <ClipboardCheck className="w-4 h-4 text-green-500" />
+            <span className="font-bold text-slate-700">{stats.loading ? '...' : stats.totalAbsensi}</span>
+          </div>
+        </div>
+        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+          <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Rata-rata</div>
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-amber-500" />
+            <span className="font-bold text-slate-700">{stats.loading ? '...' : stats.avgAttendance}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        {isAdminPAC && (
+          <Link 
+            to={`/scan/${item.id}`}
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-green-200 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            <QrCode className="w-5 h-5" />
+            Scan
+          </Link>
+        )}
+        <Link 
+          to={`/participants/${item.id}`}
+          className="p-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl transition-all"
+          title="Lihat Detail Rekap"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </Link>
+      </div>
+    </div>
+  );
+};
+
 const AttendancePage = () => {
   const { profile, isAdminUtama, isAdminPAC } = useAuth();
   const [kaderisasiList, setKaderisasiList] = useState<any[]>([]);
   const [materiList, setMateriList] = useState<any[]>([]);
-  const [absensiList, setAbsensiList] = useState<any[]>([]);
-  const [pesertaList, setPesertaList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [gradConfig, setGradConfig] = useState({ min_attendance: 75 });
@@ -61,26 +173,16 @@ const AttendancePage = () => {
 
     const unsubscribeKaderisasi = onSnapshot(q, (snapshot) => {
       setKaderisasiList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoading(false);
     });
 
     const unsubscribeMateri = onSnapshot(collection(db, 'materi'), (snapshot) => {
       setMateriList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-
-    const unsubscribeAbsensi = onSnapshot(collection(db, 'absensi'), (snapshot) => {
-      setAbsensiList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-
-    const unsubscribePeserta = onSnapshot(collection(db, 'peserta'), (snapshot) => {
-      setPesertaList(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
     });
 
     return () => {
       unsubscribeKaderisasi();
       unsubscribeMateri();
-      unsubscribeAbsensi();
-      unsubscribePeserta();
     };
   }, [profile, isAdminUtama]);
 
@@ -94,21 +196,6 @@ const AttendancePage = () => {
     } finally {
       setSavingConfig(false);
     }
-  };
-
-  const getEventStats = (event: any) => {
-    const eventMateri = materiList.filter(m => m.kaderisasi_type === event.jenis);
-    const eventPeserta = pesertaList.filter(p => p.kegiatan_id === event.id);
-    const eventAbsensi = absensiList.filter(a => a.kegiatan_id === event.id);
-    
-    return {
-      materiCount: eventMateri.length,
-      pesertaCount: eventPeserta.length,
-      totalAbsensi: eventAbsensi.length,
-      avgAttendance: eventMateri.length > 0 && eventPeserta.length > 0 
-        ? Math.round((eventAbsensi.length / (eventMateri.length * eventPeserta.length)) * 100) 
-        : 0
-    };
   };
 
   const filteredList = kaderisasiList.filter(item => 
@@ -178,76 +265,14 @@ const AttendancePage = () => {
         </div>
 
         <div className="divide-y divide-slate-50">
-          {filteredList.length > 0 ? filteredList.map((item) => {
-            const stats = getEventStats(item);
-            return (
-              <div key={item.id} className="p-6 hover:bg-slate-50 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-6 group">
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="w-14 h-14 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center font-bold text-xl">
-                    {item.jenis.charAt(0)}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-800 group-hover:text-green-700 transition-colors text-lg">{item.nama}</h3>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500 mt-1">
-                      <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {item.lokasi}</span>
-                      <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {format(new Date(item.tanggal), 'dd MMM yyyy', { locale: id })}</span>
-                      <span className="flex items-center gap-1 font-bold text-green-600"><Building2 className="w-3.5 h-3.5" /> {item.pac_name}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Materi</div>
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="w-4 h-4 text-blue-500" />
-                      <span className="font-bold text-slate-700">{stats.materiCount}</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Peserta</div>
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-indigo-500" />
-                      <span className="font-bold text-slate-700">{stats.pesertaCount}</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Total Absen</div>
-                    <div className="flex items-center gap-2">
-                      <ClipboardCheck className="w-4 h-4 text-green-500" />
-                      <span className="font-bold text-slate-700">{stats.totalAbsensi}</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Rata-rata</div>
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-amber-500" />
-                      <span className="font-bold text-slate-700">{stats.avgAttendance}%</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {isAdminPAC && (
-                    <Link 
-                      to={`/scan/${item.id}`}
-                      className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-green-200 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
-                    >
-                      <QrCode className="w-5 h-5" />
-                      Scan
-                    </Link>
-                  )}
-                  <Link 
-                    to={`/participants/${item.id}`}
-                    className="p-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl transition-all"
-                    title="Lihat Detail Rekap"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </Link>
-                </div>
-              </div>
-            );
-          }) : (
+          {filteredList.length > 0 ? filteredList.map((item) => (
+            <KaderisasiStatRow 
+              key={item.id} 
+              item={item} 
+              materiList={materiList} 
+              isAdminPAC={isAdminPAC === true} 
+            />
+          )) : (
             <div className="p-12 text-center text-slate-500">
               <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Clock className="w-8 h-8 text-slate-300" />

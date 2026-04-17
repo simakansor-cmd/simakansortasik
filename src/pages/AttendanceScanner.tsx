@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
-import { collection, query, where, onSnapshot, addDoc, doc, getDoc, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, doc, getDoc, getDocs, serverTimestamp, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { APP_LOGO } from '../constants';
 import { QRCodeSVG } from 'qrcode.react';
@@ -64,20 +64,44 @@ const AttendanceScanner = () => {
 
     fetchKegiatan();
 
-    const aQuery = query(collection(db, 'absensi'), where('kegiatan_id', '==', kegiatanId));
+    const aQuery = query(
+      collection(db, 'absensi'), 
+      where('kegiatan_id', '==', kegiatanId),
+      orderBy('waktu', 'desc'),
+      limit(10)
+    );
+
+    const cache = {
+      peserta: new Map<string, string>(),
+      materi: new Map<string, string>()
+    };
+
     const unsubscribeAbsensi = onSnapshot(aQuery, async (snapshot) => {
       const absensiData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // Fetch participant names for recent absensi
+      
+      // Fetch details only for what we got, using cache
       const withNames = await Promise.all(absensiData.map(async (a: any) => {
-        const pDoc = await getDoc(doc(db, 'peserta', a.peserta_id));
-        const mDoc = await getDoc(doc(db, 'materi', a.materi_id));
+        let pName = cache.peserta.get(a.peserta_id);
+        if (!pName) {
+          const pDoc = await getDoc(doc(db, 'peserta', a.peserta_id));
+          pName = pDoc.exists() ? pDoc.data().nama : 'Unknown';
+          cache.peserta.set(a.peserta_id, pName);
+        }
+
+        let mName = cache.materi.get(a.materi_id);
+        if (!mName) {
+          const mDoc = await getDoc(doc(db, 'materi', a.materi_id));
+          mName = mDoc.exists() ? mDoc.data().nama : 'Unknown';
+          cache.materi.set(a.materi_id, mName!);
+        }
+
         return { 
           ...a, 
-          peserta_nama: pDoc.exists() ? pDoc.data().nama : 'Unknown',
-          materi_nama: mDoc.exists() ? mDoc.data().nama : 'Unknown'
+          peserta_nama: pName,
+          materi_nama: mName
         };
       }));
-      setRecentAbsensi(withNames.sort((a: any, b: any) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime()).slice(0, 5));
+      setRecentAbsensi(withNames);
     });
 
     return () => {

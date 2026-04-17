@@ -42,7 +42,7 @@ const ParticipantManagement = () => {
   const navigate = useNavigate();
   const [kegiatan, setKegiatan] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
-  const [absensi, setAbsensi] = useState<any[]>([]);
+  const [absensiMap, setAbsensiMap] = useState<Map<string, number>>(new Map());
   const [materi, setMateri] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -99,7 +99,12 @@ const ParticipantManagement = () => {
 
     const aQuery = query(collection(db, 'absensi'), where('kegiatan_id', '==', kegiatanId));
     const unsubscribeAbsensi = onSnapshot(aQuery, (snapshot) => {
-      setAbsensi(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const counts = new Map<string, number>();
+      snapshot.docs.forEach(doc => {
+        const pId = doc.data().peserta_id;
+        counts.set(pId, (counts.get(pId) || 0) + 1);
+      });
+      setAbsensiMap(counts);
     });
 
     return () => {
@@ -173,7 +178,7 @@ const ParticipantManagement = () => {
   });
 
   const getAttendanceCount = (pesertaId: string) => {
-    return absensi.filter(a => a.peserta_id === pesertaId).length;
+    return absensiMap.get(pesertaId) || 0;
   };
 
   if (loading) return <div className="flex items-center justify-center h-64">Memuat data...</div>;

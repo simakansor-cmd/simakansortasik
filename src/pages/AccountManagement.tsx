@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../components/AuthContext';
-import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, setDoc, getDoc, where, getDocs } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, setDoc, getDoc, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { initializeApp, deleteApp, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase';
@@ -58,8 +58,12 @@ const AccountManagement = () => {
   useEffect(() => {
     if (!isAdminUtama) return;
 
-    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+    const q = query(collection(db, 'users'), orderBy('created_at', 'desc'), limit(100));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users');
       setLoading(false);
     });
 

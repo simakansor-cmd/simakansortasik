@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../components/AuthContext';
-import { collection, query, where, onSnapshot, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, doc, getDoc, getCountFromServer, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { 
   Users, 
@@ -35,7 +35,8 @@ const Dashboard = () => {
     totalKaderisasi: 0,
     pendingKaderisasi: 0,
     totalPeserta: 0,
-    totalLulus: 0
+    totalLulus: 0,
+    totalUsers: 0
   });
   const [pesertaData, setPesertaData] = useState<any>(null);
   const [pesertaEvent, setPesertaEvent] = useState<any>(null);
@@ -72,35 +73,60 @@ const Dashboard = () => {
         const total = data.length;
         const pending = data.filter((k: any) => k.status === 'pending').length;
         
-        // Fetch participants count
-        let pesertaCount = 0;
-        let lulusCount = 0;
-        
-        if (isAdminUtama) {
-          const pSnapshot = await getDocs(collection(db, 'peserta'));
-          pesertaCount = pSnapshot.size;
-          lulusCount = pSnapshot.docs.filter(d => d.data().status_kelulusan === 'lulus').length;
-        } else {
-          // For PAC, only count participants in their events
-          const eventIds = data.map(d => d.id);
-          if (eventIds.length > 0) {
-            const pQuery = query(collection(db, 'peserta'), where('kegiatan_id', 'in', eventIds));
-            const pSnapshot = await getDocs(pQuery);
-            pesertaCount = pSnapshot.size;
-            lulusCount = pSnapshot.docs.filter(d => d.data().status_kelulusan === 'lulus').length;
+        // Fetch counts efficiently
+        const fetchStatsCounts = async () => {
+          let pesertaCount = 0;
+          let lulusCount = 0;
+          
+          if (isAdminUtama) {
+            const pQuery = query(collection(db, 'peserta'));
+            const lQuery = query(collection(db, 'peserta'), where('status_kelulusan', '==', 'lulus'));
+            
+            const [pSnap, lSnap] = await Promise.all([
+              getCountFromServer(pQuery),
+              getCountFromServer(lQuery)
+            ]);
+            
+            pesertaCount = pSnap.data().count;
+            lulusCount = lSnap.data().count;
+          } else {
+            const eventIds = data.map(d => d.id);
+            if (eventIds.length > 0) {
+              const pQuery = query(collection(db, 'peserta'), where('kegiatan_id', 'in', eventIds));
+              const lQuery = query(collection(db, 'peserta'), where('kegiatan_id', 'in', eventIds), where('status_kelulusan', '==', 'lulus'));
+              
+              const [pSnap, lSnap] = await Promise.all([
+                getCountFromServer(pQuery),
+                getCountFromServer(lQuery)
+              ]);
+              
+              pesertaCount = pSnap.data().count;
+              lulusCount = lSnap.data().count;
+            }
           }
-        }
 
-        setStats({
-          totalKaderisasi: total,
-          pendingKaderisasi: pending,
-          totalPeserta: pesertaCount,
-          totalLulus: lulusCount
-        });
+          setStats(prev => ({
+            ...prev,
+            totalKaderisasi: total,
+            pendingKaderisasi: pending,
+            totalPeserta: pesertaCount,
+            totalLulus: lulusCount
+          }));
+        };
+
+        fetchStatsCounts();
 
         if (isAdminUtama) {
-          const uSnapshot = await getDocs(collection(db, 'users'));
-          setUsers(uSnapshot.docs.map(d => d.data()));
+          const uQuery = collection(db, 'users');
+          getCountFromServer(uQuery).then(uSnap => {
+            setStats(prev => ({ ...prev, totalUsers: uSnap.data().count }));
+          });
+          
+          // Only fetch a few recent users for display
+          const recentUsersQuery = query(collection(db, 'users'), orderBy('created_at', 'desc'), limit(10));
+          getDocs(recentUsersQuery).then(uSnapshot => {
+            setUsers(uSnapshot.docs.map(d => d.data()));
+          });
         }
 
         setLoading(false);
@@ -218,6 +244,16 @@ const Dashboard = () => {
             icon={CheckCircle2} 
             color="indigo" 
           />
+          {isAdminUtama && (
+            <Link to="/accounts">
+              <StatCard 
+                title="Total Akun" 
+                value={stats.totalUsers} 
+                icon={UserCog} 
+                color="red" 
+              />
+            </Link>
+          )}
           {isAdminPAC && (
             <Link to="/absensi">
               <StatCard 
