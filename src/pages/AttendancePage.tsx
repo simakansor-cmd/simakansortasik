@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../components/AuthContext';
-import { collection, query, where, onSnapshot, doc, getDoc, setDoc, getDocs, getCountFromServer } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, setDoc, getDocs, getCountFromServer, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { 
   QrCode, 
@@ -32,12 +32,12 @@ const KaderisasiStatRow = ({ item, materiList, isAdminPAC }: { item: any; materi
   });
 
   useEffect(() => {
+    let isMounted = true;
     const fetchStats = async () => {
       try {
         const eventMateri = materiList.filter(m => m.kaderisasi_type === item.jenis);
         const materiCount = eventMateri.length;
 
-        // Fetch counts efficiently
         const pQuery = query(collection(db, 'peserta'), where('kegiatan_id', '==', item.id));
         const aQuery = query(collection(db, 'absensi'), where('kegiatan_id', '==', item.id));
 
@@ -46,25 +46,28 @@ const KaderisasiStatRow = ({ item, materiList, isAdminPAC }: { item: any; materi
           getCountFromServer(aQuery)
         ]);
 
-        const pesertaCount = pSnapshot.data().count;
-        const totalAbsensi = aSnapshot.data().count;
+        if (isMounted) {
+          const pesertaCount = pSnapshot.data().count;
+          const totalAbsensi = aSnapshot.data().count;
 
-        setStats({
-          pesertaCount,
-          totalAbsensi,
-          materiCount,
-          avgAttendance: materiCount > 0 && pesertaCount > 0 
-            ? Math.round((totalAbsensi / (materiCount * pesertaCount)) * 100) 
-            : 0,
-          loading: false
-        });
+          setStats({
+            pesertaCount,
+            totalAbsensi,
+            materiCount,
+            avgAttendance: materiCount > 0 && pesertaCount > 0 
+              ? Math.round((totalAbsensi / (materiCount * pesertaCount)) * 100) 
+              : 0,
+            loading: false
+          });
+        }
       } catch (error) {
         console.error("Error fetching stats for", item.nama, error);
-        setStats(prev => ({ ...prev, loading: false }));
+        if (isMounted) setStats(prev => ({ ...prev, loading: false }));
       }
     };
 
     fetchStats();
+    return () => { isMounted = false; };
   }, [item.id, item.jenis, materiList]);
 
   return (
@@ -163,11 +166,13 @@ const AttendancePage = () => {
 
     let q;
     if (isAdminUtama) {
-      q = query(collection(db, 'kaderisasi'), where('status', '==', 'approved'));
+      q = query(collection(db, 'kaderisasi'), where('status', '==', 'approved'), orderBy('tanggal', 'desc'), limit(100));
     } else {
       q = query(collection(db, 'kaderisasi'), 
         where('created_by', '==', profile.uid),
-        where('status', '==', 'approved')
+        where('status', '==', 'approved'),
+        orderBy('tanggal', 'desc'),
+        limit(50)
       );
     }
 

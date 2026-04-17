@@ -31,6 +31,7 @@ const AttendanceScanner = () => {
   const [selectedMateri, setSelectedMateri] = useState<string>('');
   const [recentAbsensi, setRecentAbsensi] = useState<any[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [scanMode, setScanMode] = useState<'session' | 'checkin'>('session');
   const [showEventQR, setShowEventQR] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const eventQrRef = useRef<HTMLDivElement>(null);
@@ -113,7 +114,7 @@ const AttendanceScanner = () => {
   }, [kegiatanId]);
 
   const startScanner = async () => {
-    if (!selectedMateri) return toast.error('Pilih materi terlebih dahulu');
+    if (scanMode === 'session' && !selectedMateri) return toast.error('Pilih materi terlebih dahulu');
     setScanning(true);
     
     // Give a small delay for the DOM to render the reader div
@@ -165,11 +166,6 @@ const AttendanceScanner = () => {
   };
 
   const recordAbsensi = async (pesertaId: string) => {
-    if (!selectedMateri) {
-      toast.error('Pilih materi terlebih dahulu');
-      return;
-    }
-
     try {
       const pDoc = await getDoc(doc(db, 'peserta', pesertaId));
       if (!pDoc.exists()) {
@@ -178,6 +174,25 @@ const AttendanceScanner = () => {
       }
 
       const pesertaData = pDoc.data();
+
+      if (scanMode === 'checkin') {
+        if (pesertaData.status === 'Peserta') {
+          toast.warning(`${pesertaData.nama} sudah check-in sebelumnya`);
+          return;
+        }
+
+        const { updateDoc } = await import('firebase/firestore');
+        await updateDoc(doc(db, 'peserta', pesertaId), {
+          status: 'Peserta'
+        });
+        toast.success(`Check-in berhasil: ${pesertaData.nama}`);
+        return;
+      }
+
+      if (!selectedMateri) {
+        toast.error('Pilih materi terlebih dahulu');
+        return;
+      }
 
       // Check if already absensi for this materi
       const aQuery = query(collection(db, 'absensi'), 
@@ -265,6 +280,20 @@ const AttendanceScanner = () => {
       </header>
 
       <div className="flex flex-wrap gap-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-1 flex gap-1 shadow-sm">
+          <button 
+            onClick={() => setScanMode('session')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${scanMode === 'session' ? 'bg-green-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+          >
+            Absensi Sesi
+          </button>
+          <button 
+            onClick={() => setScanMode('checkin')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${scanMode === 'checkin' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+          >
+            Check-In Peserta
+          </button>
+        </div>
         <button 
           onClick={() => setShowEventQR(true)}
           className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-50 transition-all shadow-sm"
@@ -364,32 +393,46 @@ const AttendanceScanner = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-6">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 ml-1">Pilih Materi Sesi</label>
-              <div className="relative">
-                <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <select
-                  disabled={scanning}
-                  value={selectedMateri}
-                  onChange={(e) => setSelectedMateri(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all appearance-none disabled:opacity-50"
-                >
-                  {materi.map((m) => (
-                    <option key={m.id} value={m.id}>{m.nama}</option>
-                  ))}
-                  {materi.length === 0 && <option value="">Belum ada materi</option>}
-                </select>
+            {scanMode === 'session' ? (
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 ml-1">Pilih Materi Sesi</label>
+                <div className="relative">
+                  <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <select
+                    disabled={scanning}
+                    value={selectedMateri}
+                    onChange={(e) => setSelectedMateri(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all appearance-none disabled:opacity-50"
+                  >
+                    {materi.map((m) => (
+                      <option key={m.id} value={m.id}>{m.nama}</option>
+                    ))}
+                    {materi.length === 0 && <option value="">Belum ada materi</option>}
+                  </select>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-6 bg-indigo-50 rounded-2xl border border-indigo-100">
+                <h3 className="font-bold text-indigo-900 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5" />
+                  Mode Check-In Masuk
+                </h3>
+                <p className="text-sm text-indigo-700 mt-1 opacity-80">
+                  Scan QR ID Card peserta untuk mengonfirmasi kehadiran mereka di lokasi kegiatan dan mengubah status menjadi Peserta.
+                </p>
+              </div>
+            )}
 
             {!scanning ? (
               <button
                 onClick={startScanner}
-                disabled={!selectedMateri}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-6 rounded-2xl font-bold shadow-xl shadow-green-200 transition-all flex flex-col items-center justify-center gap-3"
+                disabled={scanMode === 'session' && !selectedMateri}
+                className={`w-full py-6 rounded-2xl font-bold shadow-xl transition-all flex flex-col items-center justify-center gap-3 ${
+                  scanMode === 'session' ? 'bg-green-600 hover:bg-green-700 shadow-green-200 text-white' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200 text-white'
+                }`}
               >
                 <Camera className="w-10 h-10" />
-                <span>Mulai Scanning</span>
+                <span>Mulai Scanning {scanMode === 'session' ? 'Absensi' : 'Check-In'}</span>
               </button>
             ) : (
               <div className="space-y-4">

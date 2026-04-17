@@ -30,7 +30,7 @@ import html2canvas from 'html2canvas';
 import { useRef } from 'react';
 
 const Dashboard = () => {
-  const { profile, isAdminUtama, isAdminPAC, isPeserta } = useAuth();
+  const { profile, isAdminUtama, isAdminPAC, isPeserta, loading: authLoading } = useAuth();
   const [stats, setStats] = useState({
     totalKaderisasi: 0,
     pendingKaderisasi: 0,
@@ -49,19 +49,18 @@ const Dashboard = () => {
   const qrPdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // If AuthContext is still loading, wait
-    if (!profile && !isAdminUtama && !isPeserta) {
-      // If we don't have enough info yet, but AuthContext says it's done loading,
-      // we should still stop the dashboard loading spinner
-      const timer = setTimeout(() => setLoading(false), 2000);
-      return () => clearTimeout(timer);
+    if (authLoading) return;
+    
+    if (!profile && !isAdminUtama) {
+      setLoading(false);
+      return;
     }
 
     let q;
     if (isAdminUtama) {
       q = query(collection(db, 'kaderisasi'));
     } else if (isAdminPAC) {
-      q = query(collection(db, 'kaderisasi'), where('created_by', '==', profile.uid));
+      q = query(collection(db, 'kaderisasi'), where('created_by', '==', profile?.uid));
     }
 
     if (q) {
@@ -219,61 +218,82 @@ const Dashboard = () => {
       </header>
 
       {(isAdminUtama || isAdminPAC) && (
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-          <StatCard 
-            title="Total Kaderisasi" 
-            value={stats.totalKaderisasi} 
-            icon={Building2} 
-            color="blue" 
-          />
-          <StatCard 
-            title="Pengajuan Pending" 
-            value={stats.pendingKaderisasi} 
-            icon={Clock} 
-            color="amber" 
-          />
-          <StatCard 
-            title="Total Peserta" 
-            value={stats.totalPeserta} 
-            icon={Users} 
-            color="green" 
-          />
-          <StatCard 
-            title="Peserta Lulus" 
-            value={stats.totalLulus} 
-            icon={CheckCircle2} 
-            color="indigo" 
-          />
+        <div className="flex flex-wrap gap-4 mb-2">
           {isAdminUtama && (
-            <Link to="/accounts">
-              <StatCard 
-                title="Total Akun" 
-                value={stats.totalUsers} 
-                icon={UserCog} 
-                color="red" 
-              />
+            <Link to="/accounts" className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-100 rounded-xl text-sm font-bold text-slate-600 hover:text-green-600 shadow-sm transition-all">
+              <UserCog className="w-4 h-4" /> Kelola Akun ({stats.totalUsers})
             </Link>
           )}
           {isAdminPAC && (
-            <Link to="/absensi">
-              <StatCard 
-                title="Scan Absensi" 
-                value="Scan" 
-                icon={ClipboardCheck} 
-                color="green" 
-              />
+            <Link to="/absensi" className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-100 rounded-xl text-sm font-bold text-slate-600 hover:text-green-600 shadow-sm transition-all">
+              <ClipboardCheck className="w-4 h-4" /> Scan Absensi
             </Link>
           )}
-          {isAdminUtama && (
-            <Link to="/accounts">
-              <StatCard 
-                title="Kelola Akun" 
-                value={users.length} 
-                icon={UserCog} 
-                color="red" 
-              />
-            </Link>
-          )}
+        </div>
+      )}
+
+      {(isAdminUtama || isAdminPAC) && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+            <StatCard 
+              title="Total Kaderisasi" 
+              value={stats.totalKaderisasi} 
+              icon={Building2} 
+              color="blue" 
+            />
+            <StatCard 
+              title="Pengajuan Pending" 
+              value={stats.pendingKaderisasi} 
+              icon={Clock} 
+              color="amber" 
+            />
+            <StatCard 
+              title="Total Peserta" 
+              value={stats.totalPeserta} 
+              icon={Users} 
+              color="green" 
+            />
+            <StatCard 
+              title="Peserta Lulus" 
+              value={stats.totalLulus} 
+              icon={CheckCircle2} 
+              color="indigo" 
+            />
+          </div>
+          
+          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
+            <div className="relative w-24 h-24 flex items-center justify-center mb-3">
+              <svg className="w-full h-full -rotate-90">
+                <circle
+                  cx="48"
+                  cy="48"
+                  r="42"
+                  fill="transparent"
+                  stroke="#f1f5f9"
+                  strokeWidth="8"
+                />
+                <circle
+                  cx="48"
+                  cy="48"
+                  r="42"
+                  fill="transparent"
+                  stroke="#16a34a"
+                  strokeWidth="8"
+                  strokeDasharray={263.8}
+                  strokeDashoffset={263.8 - (263.8 * (stats.totalKaderisasi > 0 ? ((stats.totalKaderisasi - stats.pendingKaderisasi) / stats.totalKaderisasi) * 100 : 0)) / 100}
+                  strokeLinecap="round"
+                  className="transition-all duration-1000 ease-out"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-xl font-black text-slate-900">
+                  {stats.totalKaderisasi > 0 ? Math.round(((stats.totalKaderisasi - stats.pendingKaderisasi) / stats.totalKaderisasi) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+            <h3 className="font-bold text-slate-800 text-sm">Validasi Kegiatan</h3>
+            <p className="text-[10px] text-slate-400 mt-1">Persentase pengajuan yang sudah disetujui</p>
+          </div>
         </div>
       )}
 

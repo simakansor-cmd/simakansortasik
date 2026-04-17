@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../components/AuthContext';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, addDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, addDoc, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
 import { 
@@ -45,9 +45,13 @@ const KaderisasiManagement = () => {
 
     let q;
     if (isAdminUtama) {
-      q = query(collection(db, 'kaderisasi'));
+      q = query(collection(db, 'kaderisasi'), orderBy('tanggal', 'desc'), limit(100));
     } else {
-      q = query(collection(db, 'kaderisasi'), where('created_by', '==', profile.uid));
+      q = query(collection(db, 'kaderisasi'), 
+        where('created_by', '==', profile.uid),
+        orderBy('tanggal', 'desc'),
+        limit(50)
+      );
     }
 
     const unsubscribeKaderisasi = onSnapshot(q, (snapshot) => {
